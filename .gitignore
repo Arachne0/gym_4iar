@@ -1,0 +1,22 @@
+.vscode/
+__pycache__/
+.idea/
+logs/
+wandb/
+prev_src/
+models/git reset
+gym_fiar/
+
+*/train_fiar_*.py
+/src/ploting
+*/fiar_env_*.py
+*/efficient_mcts_*.py
+
+*.log
+*.out
+*.model
+*.zip
+*.png
+*.c
+.DS_Store
+src/.DS_Store
