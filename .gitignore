@@ -4,14 +4,12 @@ __pycache__/
 logs/
 wandb/
 prev_src/
-models/git reset
+models/
 gym_fiar/
-
-*/train_fiar_*.py
 /src/ploting
-*/fiar_env_*.py
 */efficient_mcts_*.py
 
+*.pth
 *.log
 *.out
 *.model
