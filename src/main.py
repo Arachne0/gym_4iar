@@ -1,5 +1,4 @@
 import argparse
-import yaml
 import random
 import numpy as np
 import wandb
@@ -10,11 +9,6 @@ from network import PolicyValueNet
 from mcts.mcts import MCTSPlayer
 from mcts.mcts_efficient import EMCTSPlayer
 from utils.file_utils import *
-
-
-# def load_yaml_config(path):
-#     with open(path, 'r') as f:
-#         return yaml.safe_load(f)
 
 
 def get_args():
@@ -200,11 +194,6 @@ def policy_update(lr_mul, policy_value_net, data_buffers=None, rl_model=None):
         elif kl < args.kl_targ / 2 and lr_multiplier < 10:
             lr_multiplier *= 1.5
 
-    print(("kl:{:.5f},"
-           "lr_multiplier:{:.3f},"
-           "loss:{},"
-           "entropy:{}"
-           ).format(kl, lr_multiplier, loss, entropy))
     return loss, entropy, lr_multiplier, policy_value_net
 
 

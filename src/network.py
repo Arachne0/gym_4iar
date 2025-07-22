@@ -32,27 +32,34 @@ def quantile_regression_loss(pred, target, tau, kappa):
 
 def apply_masking(probs, available):
     masked_probs = np.zeros_like(probs)
+    if len(available) == 0:
+        return masked_probs
+
     masked_probs[available] = probs[available]
     total_sum = masked_probs.sum()
+
     if total_sum > 0:
         masked_probs /= total_sum
     else:
         masked_probs /= (total_sum + 1)
+        # fallback: uniform over available actions
+        # masked_probs[available] = 1.0 / len(available)
+        print("mask")
     return masked_probs
 
 
-def compute_masked_act_probs(log_act_probs, state_batch):
-    act_probs = torch.exp(log_act_probs).cpu().numpy()
-    available_mask = (state_batch[:, 3] == 0).cpu().float().numpy()
-    available_mask = available_mask.reshape(64, 36)
-    masked_act_probs = act_probs * available_mask
-
-    if available_mask.sum(axis=1).all() > 0:
-        act_probs = masked_act_probs / masked_act_probs.sum(axis=1, keepdims=True)
-    else:
-        act_probs = masked_act_probs / (masked_act_probs.sum() + 1)
-
-    return act_probs
+# def compute_masked_act_probs(log_act_probs, state_batch):
+#     act_probs = torch.exp(log_act_probs).cpu().numpy()
+#     available_mask = (state_batch[:, 3] == 0).cpu().float().numpy()
+#     available_mask = available_mask.reshape(64, 36)
+#     masked_act_probs = act_probs * available_mask
+#
+#     if available_mask.sum(axis=1).all() > 0:
+#         act_probs = masked_act_probs / masked_act_probs.sum(axis=1, keepdims=True)
+#     else:
+#         act_probs = masked_act_probs / (masked_act_probs.sum() + 1)
+#
+#     return act_probs
 
 
 class DQN(nn.Module):
@@ -436,25 +443,6 @@ class PolicyValueNet:
     """policy-value network """
 
     def __init__(self, board_width, board_height, args, old_model=None):
-        # if hasattr(sys, 'gettrace') and sys.gettrace():
-        #     print("Debugger detected → forcing CPU")
-        #     self.device = torch.device("cpu")
-        # else:
-        #     self.device = (
-        #         torch.device("cuda") if torch.cuda.is_available()
-        #         else torch.device("mps") if torch.backends.mps.is_available()
-        #         else torch.device("cpu")
-        #     )
-        # self.device = (
-        #     torch.device("cuda") if torch.cuda.is_available()
-        #     else torch.device("mps") if torch.backends.mps.is_available()
-        #     else torch.device("cpu")
-        # )
-
-        # self.device = torch.device("mps")
-        self.device = torch.device("cpu")
-        print(self.device)
-
         self.l2_const = 1e-4  # coef of l2 penalty
         self.gamma = 0.99
         self.kappa = 1.0
@@ -463,8 +451,12 @@ class PolicyValueNet:
         self.old_model = old_model
         self.trained_model = args.init_model
 
+        self.device = (
+            torch.device("cuda") if torch.cuda.is_available()
+            else torch.device("mps") if torch.backends.mps.is_available()
+            else torch.device("cpu")
+        )
         if not self.N is None:
-            self.quantile_tau = torch.FloatTensor([i / self.N for i in range(1, self.N + 1)]).to(self.device)
             self.quantile_mid_tau = torch.FloatTensor([(i - 0.5) / self.N for i in range(1, self.N + 1)]).to(self.device)
 
         # Define model constructors
@@ -481,7 +473,7 @@ class PolicyValueNet:
         if args.rl_model in model_map:
             self.policy_value_net = model_map[args.rl_model]().to(self.device)
         else:
-            print("wtf")
+            print("error")
 
         self.optimizer = optim.Adam(self.policy_value_net.parameters(),
                                     weight_decay=self.l2_const)
@@ -497,18 +489,14 @@ class PolicyValueNet:
         state_batch = np.array(state_batch)
         state_batch = torch.tensor(state_batch, dtype=torch.float32, device=self.device)
         with torch.no_grad():
-            if self.rl_model in ["QAC", "QRQAC", "EQRQAC"]:
-                log_act_probs, value = self.policy_value_net(state_batch)
-                act_probs = compute_masked_act_probs(log_act_probs, state_batch)
-                if self.rl_model == "QAC":
-                    value = torch.mean(value, dim=1, keepdim=True)    # value.shape = (batch, 1)
-                else:
-                    value = torch.mean(value, dim=2, keepdim=True)  # value.shape = (batch, n_quantiles, 1)
+            # Forward through policy-value network
+            log_act_probs, value = self.policy_value_net(state_batch)
+            act_probs = torch.exp(log_act_probs).cpu().numpy()
 
-            else:  # AC or QRAC
-                log_act_probs, value = self.policy_value_net(state_batch)
-                act_probs = compute_masked_act_probs(log_act_probs, state_batch)
-
+            if self.rl_model == "QAC":
+                value = torch.mean(value, dim=1, keepdim=True)  # value.shape = (batch, 1)
+            elif self.rl_model in ["QRQAC", "EQRQAC"]:
+                value = torch.mean(value, dim=2, keepdim=True)  # value.shape = (batch, n_quantiles, 1)
             value = value.cpu().numpy()
 
         return act_probs, value
