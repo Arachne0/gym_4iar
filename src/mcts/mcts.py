@@ -143,7 +143,7 @@ class MCTS(object):
 
             else:
                 if self.rl_model == "DQN":
-                    leaf_value = leaf_value.cpu().numpy().max()
+                    leaf_value_ = leaf_value.cpu().numpy()
                     """ use oracle """
                     """ calculate next node.select's node._Q """
                     # leaf_temp = node._Q + (leaf_value - node._Q)/ (node._n_visits+1)
@@ -153,10 +153,11 @@ class MCTS(object):
                     """ use bellman expection to cal state value """
                     # leaf_value = (leaf_value_*action_probs).mean()
                 else:
-                    leaf_value = leaf_value.cpu().mean(axis=0).max()
+                    leaf_value_ = leaf_value.cpu().mean(axis=0)
 
-                action_probs = np.zeros_like(leaf_value)
+                action_probs = np.zeros_like(leaf_value_)
                 action_probs = zip(available, action_probs[available])
+                leaf_value = leaf_value_.max()
 
         else:  # state version AC, QRAC, QAC, QRQAC
             available, action_probs, leaf_value = self._policy(env)
