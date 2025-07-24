@@ -124,28 +124,22 @@ class MCTS(object):
             obs, reward, terminated, info = env.step(action)
 
         if self.rl_model in ["DQN", "QRDQN"]:
-            available, action_probs, leaf_value = self._policy(env)
+            available, _, leaf_value = self._policy(env)
 
             if len(available) > 0:
-                action_probs = np.zeros_like(action_probs)
-
-                # leaf_value_: shape = (n_actions,)
                 if self.rl_model == "DQN":
-                    leaf_value_ = leaf_value.cpu().numpy()
+                    leaf_value_ = leaf_value.cpu().numpy()  # shape: (n_actions,)
                 else:  # QRDQN
-                    leaf_value_ = leaf_value.cpu().mean(axis=0).squeeze()
+                    leaf_value_ = leaf_value.cpu().mean(axis=0).squeeze()  # shape: (n_actions,)
 
-                # mask out illegal actions
-                masked_leaf_value = np.zeros_like(leaf_value_)
+                masked_leaf_value = np.full_like(leaf_value_, -np.inf, dtype=np.float32)
                 masked_leaf_value[available] = leaf_value_[available]
 
-                # greedy action selection among available actions
-                idx_max = available[np.argmax(masked_leaf_value[available])]
-                action_probs[idx_max] = 1
+                action_probs = softmax(masked_leaf_value)
 
                 # bellman optimality: max Q-value
-                leaf_value = masked_leaf_value[available].max()
                 action_probs = zip(available, action_probs[available])
+                leaf_value = masked_leaf_value[available].max()
 
             else:
                 if self.rl_model == "DQN":
@@ -160,55 +154,9 @@ class MCTS(object):
                     # leaf_value = (leaf_value_*action_probs).mean()
                 else:
                     leaf_value = leaf_value.cpu().mean(axis=0).max()
+
+                action_probs = np.zeros_like(leaf_value)
                 action_probs = zip(available, action_probs[available])
-
-
-        # if self.rl_model in "DQN":
-        #     available, action_probs, leaf_value = self._policy(env)
-        #     if len(available) > 0:
-        #         action_probs = np.zeros_like(action_probs)
-        #
-        #         leaf_value_ = leaf_value.cpu().numpy()
-        #         masked_leaf_value = np.zeros_like(leaf_value_)
-        #         masked_leaf_value[available] = leaf_value_[available]
-        #
-        #         idx_max = available[np.argmax(masked_leaf_value[available])]
-        #         action_probs[idx_max] = 1
-        #
-        #         """ use bellman optimality to cal state value """
-        #         leaf_value = masked_leaf_value[available].max()
-        #         action_probs = zip(available, action_probs[available])
-        #
-        #         """ use oracle """
-        #         """ calculate next node.select's node._Q """
-        #         # leaf_temp = node._Q + (leaf_value - node._Q)/ (node._n_visits+1)
-        #         # # do we need to calculate next node._u?
-        #         # leaf_value = leaf_value_[leaf_temp.argmax()]
-        #
-        #         """ use bellman expection to cal state value """
-        #         # leaf_value = (leaf_value_*action_probs).mean()
-        #     else:
-        #         leaf_value = leaf_value.cpu().numpy().max()
-        #         action_probs = zip(available, action_probs[available])
-        #
-        # elif self.rl_model == "QRDQN":
-        #     available, action_probs, leaf_value = self._policy(env)
-        #
-        #     if len(available) > 0:
-        #         action_probs = np.zeros_like(action_probs)
-        #         leaf_value_ = leaf_value.cpu().mean(axis=0).squeeze()
-        #
-        #         masked_leaf_value = np.zeros_like(leaf_value_)
-        #         masked_leaf_value[available] = leaf_value_[available]
-        #
-        #         idx_max = available[np.argmax(masked_leaf_value[available])]
-        #         action_probs[idx_max] = 1
-        #
-        #         leaf_value = masked_leaf_value[available].max()
-        #         action_probs = zip(available, action_probs[available])
-        #     else:
-        #         leaf_value = leaf_value.cpu().mean(axis=0).max()
-        #         action_probs = zip(available, action_probs[available])
 
         else:  # state version AC, QRAC, QAC, QRQAC
             available, action_probs, leaf_value = self._policy(env)

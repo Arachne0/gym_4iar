@@ -521,7 +521,7 @@ class PolicyValueNet:
                 masked_value = np.zeros_like(value)
                 if self.rl_model in ["QAC", "DQN"]:
                     masked_value[available] = value[available]
-                elif self.rl_model in ["QRQAC", "QRDQN", "EQRQAC", "EQRDQN"]:
+                else:  # "QRQAC", "QRDQN", "EQRQAC", "EQRDQN"
                     masked_value[:, available] = value[:, available]
                 value = torch.tensor(masked_value)
 
