@@ -536,9 +536,9 @@ class PolicyValueNet:
         log_act_probs, value = self.policy_value_net(state_batch)
 
         if self.rl_model == "DQN":
-            value = value.detach()
+            target = winner_batch.detach()
             value, _ = torch.max(value, dim=1, keepdim=True)
-            loss = F.mse_loss(value.view(-1), winner_batch)
+            loss = F.mse_loss(value.view(-1), target)
 
         elif self.rl_model in ["QRDQN", "EQRDQN"]:
             batch_size, n_quantiles, action_dim = value.shape
