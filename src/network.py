@@ -566,7 +566,8 @@ class PolicyValueNet:
             if self.rl_model == "QAC":
                 value = torch.mean(value, dim=1, keepdim=True)
 
-            value_loss = F.mse_loss(value.view(-1), winner_batch)
+            target = winner_batch.detach()
+            value_loss = F.mse_loss(value.view(-1), target)
             policy_loss = -torch.mean(torch.sum(mcts_probs * log_act_probs, 1))
             loss = value_loss + policy_loss
 
