@@ -9,6 +9,10 @@ def softmax(x):
     return probs
 
 
+def random_argmax(array):
+    return np.random.choice(np.flatnonzero(array == np.max(array)))
+
+
 def get_fixed_indices(p):
     if p == 1:
         return [13, 40, 67]
@@ -118,6 +122,9 @@ class MCTS(object):
         self.planning_depth = 0
         self.number_of_quantiles = 0
         self.p = 1
+        self.max_depth_mem = 0
+        self.max_width_mem = 0
+        self.n_playout = 0
         self.threshold = 0.1
 
     def _playout(self, env):
@@ -126,7 +133,7 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        self.planning_depth, self.number_of_quantiles = 0, 0
+        self.planning_depth, self.number_of_quantiles = 0, 3
 
         while True:
             self.planning_depth += 1
@@ -140,31 +147,30 @@ class MCTS(object):
         available, action_probs, leaf_value = self._policy(env)
 
         self.p = 1
-        self.depth_ = 3 ** 4
-        self.width_ = 3 ** 4 * len(available)
+        self.max_depth_mem = 3 ** 4
+        self.max_width_mem = 3 ** 4 * len(available)
 
-        while self.search_resource >= (self.depth_ + self.width_):
+        while self.search_resource >= (self.max_depth_mem + self.max_width_mem):
             if len(available) > 0:
                 n_indices = get_fixed_indices(self.p)
-                action_probs_ = np.zeros_like(action_probs)
                 leaf_value_ = leaf_value[n_indices, :].cpu().mean(axis=0).squeeze()  # leaf_value shape : 2-dim to 1-dim
 
                 if self.rl_model == "EQRDQN":
-                    idx_max = available[np.argmax(leaf_value_[available])]
-                    action_probs_[idx_max] = 1
-                    action_probs_[available] += self.epsilon / len(available)
-                    action_probs_[idx_max] -= self.epsilon
-                    action_probs = action_probs_
+                    masked_leaf_value = np.full_like(leaf_value_, -np.inf, dtype=np.float32)
+                    masked_leaf_value[available] = leaf_value_[available]
+                    action_probs = softmax(masked_leaf_value)
+                    leaf_value_srted, idx_srted = torch.tensor(masked_leaf_value).sort()
 
-                leaf_value_srted, idx_srted = leaf_value_.sort()
+                else:  # self.rl_model == "EQRQAC"
+                    leaf_value_srted, idx_srted = leaf_value_.sort()
 
-                if torch.abs(leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]]) < self.threshold:
+                if torch.abs(leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]]) > self.threshold:
                     action_probs = zip(available, action_probs[available])
 
                     if self.rl_model == "EQRDQN":
                         leaf_value = leaf_value_[idx_srted[-1]]  # max Q-value
                     elif self.rl_model == "EQRQAC":
-                        leaf_value = leaf_value_[available].mean()  # max Q-value
+                        leaf_value = leaf_value_.mean()  # mean Q-value
 
                     # Check for end of game
                     end, winners = env.winner()
@@ -189,11 +195,14 @@ class MCTS(object):
 
                 if self.p == 5:
                     action_probs = zip(available, action_probs[available])
-                    leaf_value = leaf_value_[idx_srted[-1]]
+                    if self.rl_model == "EQRDQN":
+                        leaf_value = leaf_value_[idx_srted[-1]]  # max Q-value
+                    else:  # self.rl_model == "EQRQAC":
+                        leaf_value = leaf_value_.mean()  # mean Q-value
 
                     # Check for end of game
                     end, winners = env.winner()
-                    self.number_of_quantiles = 3 ** (self.p - 1)  # maximum quantiles 81
+                    self.number_of_quantiles = 81  # maximum quantiles 81
 
                     if not end:
                         node.expand(action_probs)
@@ -216,6 +225,7 @@ class MCTS(object):
 
                 action_probs = zip(available, action_probs[available])
                 end, winners = env.winner()
+                self.number_of_quantiles = 3 ** self.p
 
                 if not end:
                     node.expand(action_probs)
@@ -235,22 +245,24 @@ class MCTS(object):
         state: the current game state
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
-        for n in range(self._n_playout):  # for 400 times
+        self.n_playout = 0
+        while self.search_resource > (self.max_depth_mem + self.max_width_mem):
             env_copy = copy.deepcopy(env)
+            self.n_playout += 1
             self._playout(env_copy)
-
-            if self.search_resource <= 0:
-                break
-
-        pd, nq = self.planning_depth, self.number_of_quantiles
 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
                       for act, node in self._root._children.items()]
         acts, visits = zip(*act_visits)
-        act_probs = softmax(1.0 / temp * np.log(np.array(visits) + 1e-10))
 
-        return acts, act_probs, pd, nq
+        if temp == 1:
+            act_probs = softmax(1.0/temp * np.log(np.array(visits) + 1e-10))
+        else:
+            act_probs = np.zeros(len(acts))
+            act_probs[random_argmax(np.array(visits))] = 1.0
+
+        return acts, act_probs
 
     def update_with_move(self, last_move):
         """Step forward in the tree, keeping everything we already know
@@ -289,6 +301,8 @@ class EMCTSPlayer(object):
 
         self.mcts = MCTS(policy_value_function, args)
         self._is_selfplay = is_selfplay
+        self.rl_model = args.rl_model
+        self.epsilon = args.epsilon
         self.elo = 1500
         self.resource = args.search_resource
 
@@ -304,14 +318,22 @@ class EMCTSPlayer(object):
         self.mcts.search_resource = self.resource
 
         if len(sensible_moves) > 0:
-            acts, probs, pd, nq = self.mcts.get_move_probs(env, temp)  # env.state_.shape = (5,9,4)
+            acts, probs = self.mcts.get_move_probs(env, temp)  # env.state_.shape = (5,9,4)
+            pd, nq = self.mcts.planning_depth, self.mcts.number_of_quantiles
             move_probs[list(acts)] = probs
+
             if self._is_selfplay:
-                # add Dirichlet Noise for exploration (needed for self-play training)
-                move = np.random.choice(
-                    acts,
-                    p=0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
-                )
+                if self.rl_model == "EQRDQN":
+                    if np.random.rand() < self.epsilon:
+                        move = np.random.choice(acts)
+                    else:
+                        move = acts[np.argmax(probs)]
+                else:  # self.rl_model == "EQRQAC":
+                    # add Dirichlet Noise for exploration (needed for self-play training)
+                    move = np.random.choice(
+                        acts,
+                        p=0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
+                    )
                 # update the root node and reuse the search tree
                 self.mcts.update_with_move(move)
             else:

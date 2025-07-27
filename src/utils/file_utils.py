@@ -5,7 +5,7 @@ import wandb
 def initialize_wandb(args):
     common_config = {
         "entity": "hails",
-        "project": "gym_4iar",
+        "project": "gym_4iar_e",
         "config": args.__dict__
     }
 
@@ -20,7 +20,7 @@ def initialize_wandb(args):
     elif args.rl_model == "EQRDQN":
         run_name = f"FIAR-{args.rl_model}-MCTS{args.effi_n_playout}-Eps{args.epsilon}"
     elif args.rl_model == "EQRQAC":
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}"
+        run_name = f"FIAR-{args.rl_model}-MCTS{args.effi_n_playout}"
     else:
         raise ValueError("Model is not defined")
 

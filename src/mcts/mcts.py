@@ -112,7 +112,7 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        self.planning_depth, self.number_of_quantiles = 0, 0
+        self.planning_depth, self.number_of_quantiles = 0, 3
 
         while True:
             self.planning_depth += 1
@@ -196,8 +196,6 @@ class MCTS(object):
             env_copy = copy.deepcopy(env)
             self._playout(env_copy)
 
-        pd, nq = self.planning_depth, self.number_of_quantiles
-
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
                       for act, node in self._root._children.items()]
@@ -209,7 +207,7 @@ class MCTS(object):
             act_probs = np.zeros(len(acts))
             act_probs[random_argmax(np.array(visits))] = 1.0
 
-        return acts, act_probs, pd, nq
+        return acts, act_probs
 
     def update_with_move(self, last_move):
         """Step forward in the tree, keeping everything we already know
@@ -246,8 +244,10 @@ class MCTSPlayer(object):
         move_probs = np.zeros(env.state_.shape[1] * env.state_.shape[2])
 
         if len(sensible_moves) > 0:
-            acts, probs, pd, nq = self.mcts.get_move_probs(env, temp)  # env.state_.shape = (5,9,4)
+            acts, probs = self.mcts.get_move_probs(env, temp)
+            pd, nq = self.mcts.planning_depth, self.mcts.number_of_quantiles# env.state_.shape = (5,9,4)
             move_probs[list(acts)] = probs
+
             if self._is_selfplay:
                 if self.rl_model in ["DQN", "QRDQN"]:
                     # epsilon-greedy exploration for value-based methods
