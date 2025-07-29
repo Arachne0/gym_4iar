@@ -44,7 +44,6 @@ def apply_masking(probs, available):
         masked_probs /= (total_sum + 1)
         # fallback: uniform over available actions
         # masked_probs[available] = 1.0 / len(available)
-        print("mask")
     return masked_probs
 
 

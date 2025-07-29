@@ -21,7 +21,7 @@ def get_args():
 
     # Efficient search hyperparameters
     parser.add_argument("--effi_n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
-    parser.add_argument("--search_resource", type=int, required=False, choices=[5832, 58320, 145800, 291600, 1166400])
+    parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
 
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[
@@ -76,7 +76,7 @@ def get_equi_data(env, play_data):
     return extend_data
 
 
-def collect_selfplay_data(env, mcts_player, game_iter, n_games=100):
+def collect_selfplay_data(env, mcts_player, game_iter, n_games=10):
     # self-play 100 games and save in data_buffer(queue)
     # in data_buffer store all steps of self-play so, it should be large enough
     data_buffer = deque(maxlen=36 * n_games * 4)  # board size * n_games * augmentation times
@@ -111,7 +111,7 @@ def self_play(env, mcts_player, game_iter=0, self_play_i=0):
 
     while True:
         temp = 1 if env.state_[3].sum() <= 15 else 0
-        move, move_probs, pd, nq = mcts_player.get_action(env, temp, return_prob=1)
+        move, move_probs, pd, nq, n_playout = mcts_player.get_action(env, temp, return_prob=1)
 
         # store the data
         states.append(obs_post.copy())
@@ -133,7 +133,9 @@ def self_play(env, mcts_player, game_iter=0, self_play_i=0):
             graph_name = f"training/game_iter_{game_iter + 1}"
             wandb.log({
                 f"{graph_name}_pd": pd,
-                f"{graph_name}_nq": nq})
+                f"{graph_name}_nq": nq,
+                f"training/n_playout_{game_iter + 1}": n_playout
+            })
 
         if end:
             obs, _ = env.reset()
@@ -227,7 +229,7 @@ def start_play(env, player1, player2, game_iter):
 
     while True:
         # synchronize the MCTS tree with the current state of the game
-        move, pd, nq = player_in_turn.get_action(env, temp=0.1, return_prob=0)
+        move, pd, nq, n_playout = player_in_turn.get_action(env, temp=0.1, return_prob=0)
         obs, reward, terminated, info = env.step(move)
         assert env.state_[3][action2d_ize(move)] == 1, ("Invalid move", action2d_ize(move))
         end, winner = env.winner()

@@ -126,38 +126,38 @@ class MCTS(object):
         if self.rl_model in ["DQN", "QRDQN"]:
             available, _, leaf_value = self._policy(env)
 
+            if self.rl_model == "DQN":
+                leaf_value_ = leaf_value.cpu().numpy()
+            else:  # self.rl_model == "QRDQN":
+                leaf_value_ = leaf_value.cpu().mean(axis=0).squeeze()
+
+            action_probs = np.zeros_like(leaf_value_)
+            masked_leaf_value = np.zeros_like(leaf_value_)
+            masked_leaf_value[available] = leaf_value_[available]
+
             if len(available) > 0:
-                if self.rl_model == "DQN":
-                    leaf_value_ = leaf_value.cpu().numpy()  # shape: (n_actions,)
-                else:  # QRDQN
-                    leaf_value_ = leaf_value.cpu().mean(axis=0).squeeze()  # shape: (n_actions,)
+                idx_max = available[np.argmax(masked_leaf_value[available])]
+                action_probs[idx_max] = 1
 
-                masked_leaf_value = np.full_like(leaf_value_, -np.inf, dtype=np.float32)
-                masked_leaf_value[available] = leaf_value_[available]
+                # add epsilon to sensible moves and discount as much as it from the action_probs[idx_max]
+                action_probs[available] += self.epsilon / len(available)
+                action_probs[idx_max] -= self.epsilon
 
-                action_probs = softmax(masked_leaf_value)
-
-                # bellman optimality: max Q-value
-                action_probs = zip(available, action_probs[available])
+                """ use bellman optimality to cal state value """
                 leaf_value = masked_leaf_value[available].max()
 
+                """ use oracle """
+                """ calculate next node.select's node._Q """
+                # leaf_temp = node._Q + (leaf_value - node._Q)/ (node._n_visits+1)
+                # # do we need to calculate next node._u?
+                # leaf_value = leaf_value_[leaf_temp.argmax()]
+
+                """ use bellman expection to cal state value """
+                # leaf_value = (leaf_value_*action_probs).mean()
             else:
-                if self.rl_model == "DQN":
-                    leaf_value_ = leaf_value.cpu().numpy()
-                    """ use oracle """
-                    """ calculate next node.select's node._Q """
-                    # leaf_temp = node._Q + (leaf_value - node._Q)/ (node._n_visits+1)
-                    # # do we need to calculate next node._u?
-                    # leaf_value = leaf_value_[leaf_temp.argmax()]
-
-                    """ use bellman expection to cal state value """
-                    # leaf_value = (leaf_value_*action_probs).mean()
-                else:
-                    leaf_value_ = leaf_value.cpu().mean(axis=0)
-
-                action_probs = np.zeros_like(leaf_value_)
+                # Even if len(available) == 0, there is no issue because the leaf value will eventually be set to 0.
+                leaf_value = leaf_value.max()
                 action_probs = zip(available, action_probs[available])
-                leaf_value = leaf_value_.max()
 
         else:  # state version AC, QRAC, QAC, QRQAC
             available, action_probs, leaf_value = self._policy(env)
@@ -245,22 +245,15 @@ class MCTSPlayer(object):
 
         if len(sensible_moves) > 0:
             acts, probs = self.mcts.get_move_probs(env, temp)
-            pd, nq = self.mcts.planning_depth, self.mcts.number_of_quantiles# env.state_.shape = (5,9,4)
+            pd, nq = self.mcts.planning_depth, self.mcts.number_of_quantiles  # env.state_.shape = (5,9,4)
             move_probs[list(acts)] = probs
 
             if self._is_selfplay:
-                if self.rl_model in ["DQN", "QRDQN"]:
-                    # epsilon-greedy exploration for value-based methods
-                    if np.random.rand() < self.epsilon:
-                        move = np.random.choice(acts)
-                    else:
-                        move = acts[np.argmax(probs)]
-                else:
-                    # Dirichlet noise for policy-based methods
-                    move = np.random.choice(
-                        acts,
-                        p=0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
-                    )
+                # Dirichlet noise for policy-based methods
+                move = np.random.choice(
+                    acts,
+                    p=0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
+                )
                 # update the root node and reuse the search tree
                 self.mcts.update_with_move(move)
             else:
