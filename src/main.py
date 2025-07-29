@@ -76,7 +76,7 @@ def get_equi_data(env, play_data):
     return extend_data
 
 
-def collect_selfplay_data(env, mcts_player, game_iter, n_games=10):
+def collect_selfplay_data(env, mcts_player, game_iter, n_games=100):
     # self-play 100 games and save in data_buffer(queue)
     # in data_buffer store all steps of self-play so, it should be large enough
     data_buffer = deque(maxlen=36 * n_games * 4)  # board size * n_games * augmentation times
