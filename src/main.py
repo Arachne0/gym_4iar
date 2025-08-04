@@ -111,7 +111,7 @@ def self_play(env, mcts_player, game_iter=0, self_play_i=0):
 
     while True:
         temp = 1 if env.state_[3].sum() <= 15 else 0
-        move, move_probs, pd, nq, n_playout = mcts_player.get_action(env, temp, return_prob=1)
+        move, move_probs = mcts_player.get_action(env, temp, game_iter, return_prob=1)
 
         # store the data
         states.append(obs_post.copy())
@@ -128,14 +128,6 @@ def self_play(env, mcts_player, game_iter=0, self_play_i=0):
         obs_post[3] = obs[player_0] + obs[player_1]
 
         end, winners = env.winner()
-
-        if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
-            graph_name = f"training/game_iter_{game_iter + 1}"
-            wandb.log({
-                f"{graph_name}_pd": pd,
-                f"{graph_name}_nq": nq,
-                f"training/n_playout_{game_iter + 1}": n_playout
-            })
 
         if end:
             obs, _ = env.reset()
@@ -229,7 +221,7 @@ def start_play(env, player1, player2, game_iter):
 
     while True:
         # synchronize the MCTS tree with the current state of the game
-        move, pd, nq, n_playout = player_in_turn.get_action(env, temp=0.1, return_prob=0)
+        move = player_in_turn.get_action(env, temp=0.1, return_prob=0)
         obs, reward, terminated, info = env.step(move)
         assert env.state_[3][action2d_ize(move)] == 1, ("Invalid move", action2d_ize(move))
         end, winner = env.winner()

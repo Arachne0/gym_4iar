@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-
+import wandb
 
 def softmax(x):
     probs = np.exp(x - np.max(x))
@@ -239,7 +239,7 @@ class MCTSPlayer(object):
     def reset_player(self):
         self.mcts.update_with_move(-1)
 
-    def get_action(self, env, temp=0.1, return_prob=0):  # env.state_.shape = (5,9,4)
+    def get_action(self, env, temp=0.1, game_iter=0, return_prob=0):  # env.state_.shape = (5,9,4)
         sensible_moves = np.nonzero(env.state_[3].flatten() == 0)[0]
         move_probs = np.zeros(env.state_.shape[1] * env.state_.shape[2])
 
@@ -260,7 +260,14 @@ class MCTSPlayer(object):
                 move = np.random.choice(acts, p=probs)
                 # reset the root node
                 self.mcts.update_with_move(-1)
+
             if return_prob:
+                if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
+                    graph_name = f"training/game_iter_{game_iter + 1}"
+                    wandb.log({
+                        f"{graph_name}_pd": pd,
+                        f"{graph_name}_nq": nq
+                    })
                 return move, move_probs, pd, nq
             else:
                 return move, pd, nq
