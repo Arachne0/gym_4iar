@@ -4,6 +4,7 @@ __pycache__/
 logs/
 wandb/
 prev_src/
+prev_models/
 models/
 gym_fiar/
 /src/ploting

@@ -13,9 +13,9 @@ python src/main.py --rl_model QRAC --n_playout 20 --quantiles 9
 python src/main.py --rl_model QAC --n_playout 20 
 python src/main.py --rl_model QRQAC --n_playout 20 --quantiles 9 
 python src/main.py --rl_model DQN --n_playout 20 --epsilon 0.4 
-python src/main.py --rl_model QRDQN --n_playout 20 --epsilon 0.4 --quantile 9 
-python src/main.py --rl_model EQRQAC --n_playout 20 
-python src/main.py --rl_model EQRDQN --epsilon 0.4 --n_playout 20 
+python src/main.py --rl_model QRDQN --n_playout 20 --epsilon 0.4 --quantiles 9 
+python src/main.py --rl_model EQRQAC --effi_n_playout 20 --search_resource 1620 --quantiles 81
+python src/main.py --rl_model EQRDQN --effi_n_playout 20 --search_resource 1620 --quantiles 81 --epsilon 0.4 
 ```
 
 ## RUN evaluate_pure.py
