@@ -104,7 +104,9 @@ class MCTS(object):
         self._root = TreeNode(None, 1.0)
         self._policy = policy_value_fn
         self._c_puct = args.c_puct
-        self._n_playout = args.n_playout
+        # self._n_playout = args.n_playout
+        self._n_playout = args.n_playout1
+        self._n_playout = args.n_playout2
 
     def _playout(self, env):
         """Run a single playout from the root to the leaf, getting a value at
@@ -161,6 +163,7 @@ class MCTS(object):
         for n in range(self._n_playout):
             env_copy = copy.deepcopy(env)
             self._playout(env_copy)
+            print("get move times :", n)
         return max(self._root._children.items(),
                    key=lambda act_node: act_node[1]._n_visits)[0]
 
@@ -192,11 +195,10 @@ class PMCTSPlayer(object):
 
     def get_action(self, env, temp=None):
         sensible_moves = np.nonzero(env.state_[3].flatten() == 0)[0]
-        pd, nq = 0, 0
         if len(sensible_moves) > 0:
             move = self.mcts.get_move(env)
             self.mcts.update_with_move(-1)
-            return move, pd, nq
+            return move
         else:
             print("WARNING: the board is full")
 

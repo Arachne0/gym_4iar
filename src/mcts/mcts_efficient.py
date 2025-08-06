@@ -352,7 +352,6 @@ class EMCTSPlayer(object):
                         f"{graph_name}_full_search_rate": 1 if p == 4 else 0,
                         f"{graph_name}_action_gap": act_gap,
 
-
                     })
                 return move, move_probs
             else:
