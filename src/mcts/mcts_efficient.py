@@ -134,11 +134,14 @@ class MCTS(object):
         self.search_resource = args.search_resource
 
         self.planning_depth = 1
-        self.number_of_quantiles = 3
+        # self.number_of_quantiles = 3
+        self.number_of_quantiles = 1
         self.n_playout = 0
         self.p = 1
-        self.max_depth_mem = 3 * self.planning_depth
-        self.max_width_mem = 81
+        # self.max_depth_mem = 3 * self.planning_depth
+        # self.max_width_mem = 81
+        self.max_depth_mem = 1 * self.planning_depth
+        self.max_width_mem = 4
 
         self.act_gap = 0
         self.threshold = 0.1
@@ -149,7 +152,7 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        self.planning_depth, self.number_of_quantiles = 1, 3
+        self.planning_depth, self.number_of_quantiles = 1, 1
 
         while True:
             if node.is_leaf():
@@ -184,7 +187,7 @@ class MCTS(object):
                     action_probs = zip(available, action_probs[available])
                     leaf_value = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
 
-                    self.number_of_quantiles = 3 ** self.p
+                    self.number_of_quantiles = 1 * self.p
                     self.update_search_resource()
 
                     # Check for end of game
@@ -284,14 +287,23 @@ class MCTS(object):
 
     def update_search_resource(self):
         # depth
-        self.search_resource -= 3 * self.planning_depth
+        # self.search_resource -= 3 * self.planning_depth
+        self.search_resource -= 1 * self.planning_depth
         # width
+        # if self.p == 1:
+        #     self.search_resource -= 3
+        # elif self.p == 2:
+        #     self.search_resource -= 6
+        # else:
+        #     self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
         if self.p == 1:
-            self.search_resource -= 3
+            self.search_resource -= 1
         elif self.p == 2:
-            self.search_resource -= 6
+            self.search_resource -= 2
+        elif self.p == 3:
+            self.search_resource -= 3
         else:
-            self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
+            self.search_resource -= 4
 
     def __str__(self):
         return "MCTS"

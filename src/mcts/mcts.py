@@ -268,9 +268,9 @@ class MCTSPlayer(object):
                         f"{graph_name}_pd": pd,
                         f"{graph_name}_nq": nq
                     })
-                return move, move_probs, pd, nq
+                return move, move_probs
             else:
-                return move, pd, nq
+                return move
         else:
             print("WARNING: the board is full")
 
