@@ -20,7 +20,7 @@ def get_args():
 
     # Efficient search hyperparameters
     parser.add_argument("--effi_n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
-    # parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
+    parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
     # parser.add_argument("--search_resource", type=int, required=False, choices=[8, 80, 200, 400, 1600])
 
     # RL model type

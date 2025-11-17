@@ -456,8 +456,17 @@ class PolicyValueNet:
             loss = quantile_regression_loss(quantile_pred, target, tau, self.kappa)
 
         elif self.rl_model in ["AC", "QRAC", "EQRAC"]:
-            target = winner_batch.detach()
-            value_loss = F.mse_loss(value.view(-1), target)
+            if self. rl_model in ["QRAC", "EQRAC"]:
+                batch_size, n_quantiles = value.shape
+
+                target = winner_batch.detach().unsqueeze(1).expand(-1, n_quantiles)
+                tau = self.quantile_mid_tau.view(1, -1).to(self.device)
+                value_loss = quantile_regression_loss(value, target, tau, self.kappa)
+
+            else:  # AC
+                target = winner_batch.detach()
+                value_loss = F.mse_loss(value.view(-1), target)
+
             policy_loss = -torch.mean(torch.sum(mcts_probs * log_act_probs, 1))
             loss = value_loss + policy_loss
 
