@@ -115,6 +115,47 @@ class QRDQN(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
 
+        # action value layers
+        self.act_conv1 = nn.Conv2d(128, 2, kernel_size=1)
+        self.act_fc1 = nn.Linear(2 * board_width * board_height, 64)
+        self.act_fc2 = nn.Linear(64, self.num_actions * self.N)
+
+    def forward(self, state_input):
+        # common layers
+        x = F.relu(self.conv1(state_input))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+
+        # action value layers
+        x_val = F.relu(self.act_conv1(x))
+        x_val = x_val.view(-1, 2 * self.board_width * self.board_height)
+        x_val = F.relu(self.act_fc1(x_val))
+        x_val = self.act_fc2(x_val)
+        x_val = x_val.view(-1, self.N, self.num_actions)  # batch / quantile / action_space
+
+        # action value to policy layers
+        x_act = x_val.mean(dim=1)
+        x_act = F.log_softmax(x_act, dim=1)
+
+        return x_act, x_val
+
+
+class EQRDQN(nn.Module):
+    """policy-value network module"""
+
+    def __init__(self, board_width, board_height, quantiles):
+        super(EQRDQN, self).__init__()
+
+        self.board_width = board_width
+        self.board_height = board_height
+        self.num_actions = board_width * board_height
+        self.N = quantiles
+
+        # common layers
+        self.conv1 = nn.Conv2d(5, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+
         # action value layers (previous state value)
         self.act_conv1 = nn.Conv2d(128, 2, kernel_size=1)
         self.act_fc1 = nn.Linear(2 * board_width * board_height, 64)
@@ -219,60 +260,16 @@ class QRAC(nn.Module):
         x_val = x_val.view(-1, 2 * self.board_width * self.board_height)
         x_val = F.relu(self.val_fc1(x_val))
         x_val = F.tanh(self.val_fc2(x_val))
-        x_val = torch.mean(x_val, dim=1, keepdim=True)
+        x_val = x_val.view(-1, self.N)
 
         return x_act, x_val
 
 
-class QAC(nn.Module):  # action value actor critic
-    """policy-value network module"""
-
-    def __init__(self, board_width, board_height):
-        super(QAC, self).__init__()
-        self.board_width = board_width
-        self.board_height = board_height
-        self.num_actions = board_width * board_height
-
-        # common layers
-        self.conv1 = nn.Conv2d(5, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-
-        # policy gradient layers
-        self.act_conv1 = nn.Conv2d(128, 4, kernel_size=1)
-        self.act_fc1 = nn.Linear(4 * board_width * board_height, board_width * board_height)
-
-        # action value layers
-        self.val_conv1 = nn.Conv2d(128, 2, kernel_size=1)
-        self.val_fc1 = nn.Linear(2 * board_width * board_height, 64)
-        self.val_fc2 = nn.Linear(64, self.num_actions)
-
-    def forward(self, state_input):
-        # common layers
-        x = F.relu(self.conv1(state_input))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-
-        # policy gradient layers
-        x_act = F.relu(self.act_conv1(x))
-        x_act = x_act.view(-1, 4 * self.board_width * self.board_height)
-        x_act = self.act_fc1(x_act)
-        x_act = F.log_softmax(x_act, dim=1)
-
-        # action value layers
-        x_val = F.relu(self.val_conv1(x))
-        x_val = x_val.view(-1, 2 * self.board_width * self.board_height)
-        x_val = F.relu(self.val_fc1(x_val))
-        x_val = self.val_fc2(x_val)
-
-        return x_act, x_val
-
-
-class QRQAC(nn.Module):  # Quantile Regression action value actor critic
+class EQRAC(nn.Module):  # Efficient Quantile Regression action value actor critic
     """policy-value network module"""
 
     def __init__(self, board_width, board_height, quantiles):
-        super(QRQAC, self).__init__()
+        super(EQRAC, self).__init__()
         self.board_width = board_width
         self.board_height = board_height
         self.num_actions = board_width * board_height
@@ -290,7 +287,7 @@ class QRQAC(nn.Module):  # Quantile Regression action value actor critic
         # action value layers
         self.val_conv1 = nn.Conv2d(128, 2, kernel_size=1)
         self.val_fc1 = nn.Linear(2 * board_width * board_height, 64)
-        self.val_fc2 = nn.Linear(64, self.num_actions * self.N)
+        self.val_fc2 = nn.Linear(64, self.N)
 
     def forward(self, state_input):
         # common layers
@@ -304,99 +301,12 @@ class QRQAC(nn.Module):  # Quantile Regression action value actor critic
         x_act = self.act_fc1(x_act)
         x_act = F.log_softmax(x_act, dim=1)
 
-        # action value layers
+        # state value layers
         x_val = F.relu(self.val_conv1(x))
         x_val = x_val.view(-1, 2 * self.board_width * self.board_height)
         x_val = F.relu(self.val_fc1(x_val))
         x_val = self.val_fc2(x_val)
-        x_val = x_val.view(-1, self.N, self.num_actions)
-
-        return x_act, x_val
-
-
-class EQRDQN(nn.Module):
-    """policy-value network module"""
-
-    def __init__(self, board_width, board_height, quantiles):
-        super(EQRDQN, self).__init__()
-
-        self.board_width = board_width
-        self.board_height = board_height
-        self.num_actions = board_width * board_height
-        self.N = quantiles
-
-        # common layers
-        self.conv1 = nn.Conv2d(5, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-
-        # action value layers (previous state value)
-        self.act_conv1 = nn.Conv2d(128, 2, kernel_size=1)
-        self.act_fc1 = nn.Linear(2 * board_width * board_height, 64)
-        self.act_fc2 = nn.Linear(64, self.num_actions * self.N)
-
-    def forward(self, state_input):
-        # common layers
-        x = F.relu(self.conv1(state_input))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-
-        # action value layers
-        x_val = F.relu(self.act_conv1(x))
-        x_val = x_val.view(-1, 2 * self.board_width * self.board_height)
-        x_val = F.relu(self.act_fc1(x_val))
-        x_val = self.act_fc2(x_val)
-        x_val = x_val.view(-1, self.N, self.num_actions)  # batch / quantile / action_space
-
-        # action value to policy layers
-        x_act = x_val.mean(dim=1)
-        x_act = F.log_softmax(x_act, dim=1)
-
-        return x_act, x_val
-
-
-class EQRQAC(nn.Module):  # Efficient Quantile Regression action value actor critic
-    """policy-value network module"""
-
-    def __init__(self, board_width, board_height, quantiles):
-        super(EQRQAC, self).__init__()
-        self.board_width = board_width
-        self.board_height = board_height
-        self.num_actions = board_width * board_height
-        self.N = quantiles
-
-        # common layers
-        self.conv1 = nn.Conv2d(5, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-
-        # policy gradient layers
-        self.act_conv1 = nn.Conv2d(128, 4, kernel_size=1)
-        self.act_fc1 = nn.Linear(4 * board_width * board_height, board_width * board_height)
-
-        # action value layers
-        self.val_conv1 = nn.Conv2d(128, 2, kernel_size=1)
-        self.val_fc1 = nn.Linear(2 * board_width * board_height, 64)
-        self.val_fc2 = nn.Linear(64, self.num_actions * self.N)
-
-    def forward(self, state_input):
-        # common layers
-        x = F.relu(self.conv1(state_input))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-
-        # policy gradient layers
-        x_act = F.relu(self.act_conv1(x))
-        x_act = x_act.view(-1, 4 * self.board_width * self.board_height)
-        x_act = self.act_fc1(x_act)
-        x_act = F.log_softmax(x_act, dim=1)
-
-        # action value layers
-        x_val = F.relu(self.val_conv1(x))
-        x_val = x_val.view(-1, 2 * self.board_width * self.board_height)
-        x_val = F.relu(self.val_fc1(x_val))
-        x_val = self.val_fc2(x_val)
-        x_val = x_val.view(-1, self.N, self.num_actions)
+        x_val = x_val.view(-1, self.N)
 
         return x_act, x_val
 
@@ -460,14 +370,12 @@ class PolicyValueNet:
 
         # Define model constructors
         model_map = {
+            "AC": lambda: AC(board_width, board_height),
             "DQN": lambda: DQN(board_width, board_height),
             "QRDQN": lambda: QRDQN(board_width, board_height, args.quantiles),
-            "AC": lambda: AC(board_width, board_height),
-            "QAC": lambda: QAC(board_width, board_height),
             "QRAC": lambda: QRAC(board_width, board_height, args.quantiles),
-            "QRQAC": lambda: QRQAC(board_width, board_height, args.quantiles),
+            "EQRAC": lambda: EQRAC(board_width, board_height, args.quantiles),
             "EQRDQN": lambda: EQRDQN(board_width, board_height, args.quantiles),
-            "EQRQAC": lambda: EQRQAC(board_width, board_height, args.quantiles),
         }
         if args.rl_model in model_map:
             self.policy_value_net = model_map[args.rl_model]().to(self.device)
@@ -491,11 +399,6 @@ class PolicyValueNet:
             # Forward through policy-value network
             log_act_probs, value = self.policy_value_net(state_batch)
             act_probs = torch.exp(log_act_probs).cpu().numpy()
-
-            if self.rl_model == "QAC":
-                value = torch.mean(value, dim=1, keepdim=True)  # value.shape = (batch, 1)
-            elif self.rl_model in ["QRQAC", "EQRQAC"]:
-                value = torch.mean(value, dim=2, keepdim=True)  # value.shape = (batch, n_quantiles, 1)
             value = value.cpu().numpy()
 
         return act_probs, value
@@ -515,12 +418,13 @@ class PolicyValueNet:
             act_probs = torch.exp(log_act_probs).cpu().numpy().flatten()
             masked_act_probs = apply_masking(act_probs, available)
 
-            if self.rl_model in ["QAC", "QRQAC", "DQN", "QRDQN", "EQRQAC", "EQRDQN"]:  # if action version
+            if self.rl_model in ["DQN", "QRDQN", "EQRDQN"]:  # if action-value version
                 value = value.cpu().numpy().squeeze()
                 masked_value = np.zeros_like(value)
-                if self.rl_model in ["QAC", "DQN"]:
+
+                if self.rl_model in ["DQN"]:
                     masked_value[available] = value[available]
-                else:  # "QRQAC", "QRDQN", "EQRQAC", "EQRDQN"
+                else:  # "QRDQN",  "EQRDQN"
                     masked_value[:, available] = value[:, available]
                 value = torch.tensor(masked_value)
 
@@ -534,7 +438,7 @@ class PolicyValueNet:
 
         log_act_probs, value = self.policy_value_net(state_batch)
 
-        if self.rl_model == "DQN":
+        if self.rl_model in ["DQN"]:
             target = winner_batch.detach()
             value, _ = torch.max(value, dim=1, keepdim=True)
             loss = F.mse_loss(value.view(-1), target)
@@ -551,20 +455,7 @@ class PolicyValueNet:
             tau = self.quantile_mid_tau.view(1, -1).to(self.device)
             loss = quantile_regression_loss(quantile_pred, target, tau, self.kappa)
 
-        elif self.rl_model in ["QRQAC", "EQRQAC"]:
-            mcts_probs_ = mcts_probs.detach().unsqueeze(1)
-            value_ = (value * mcts_probs_).sum(dim=2)
-            target = winner_batch.unsqueeze(1).expand(-1, value.size(1)).detach()
-
-            tau = self.quantile_mid_tau.view(1, -1).to(self.device)
-            quantile_loss = quantile_regression_loss(value_, target, tau, self.kappa)
-            policy_loss = -torch.mean(torch.sum(mcts_probs.detach() * log_act_probs, dim=1))
-            loss = quantile_loss + policy_loss
-
-        elif self.rl_model in ["AC", "QRAC", "QAC"]:
-            if self.rl_model == "QAC":
-                value = torch.mean(value, dim=1, keepdim=True)
-
+        elif self.rl_model in ["AC", "QRAC", "EQRAC"]:
             target = winner_batch.detach()
             value_loss = F.mse_loss(value.view(-1), target)
             policy_loss = -torch.mean(torch.sum(mcts_probs * log_act_probs, 1))

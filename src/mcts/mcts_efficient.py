@@ -21,7 +21,7 @@ def get_leaf_value(leaf_value_, rl_model, idx_srted=None):
         if idx_srted is not None:
             return leaf_value_[idx_srted[-1]]  # max Q-value from sorted index
         return leaf_value_.max()               # fallback to max
-    elif rl_model == "EQRQAC":
+    elif rl_model == "EQRAC":
         return leaf_value_.mean()              # mean regardless of idx_srted
     else:
         raise ValueError(f"Unsupported rl_model: {rl_model}")
@@ -137,7 +137,7 @@ class MCTS(object):
         # self.number_of_quantiles = 3
         self.number_of_quantiles = 1
         self.n_playout = 0
-        self.p = 1
+        self.p = 3
         # self.max_depth_mem = 3 * self.planning_depth
         # self.max_width_mem = 81
         self.max_depth_mem = 1 * self.planning_depth
@@ -287,23 +287,27 @@ class MCTS(object):
 
     def update_search_resource(self):
         # depth
-        # self.search_resource -= 3 * self.planning_depth
-        self.search_resource -= 1 * self.planning_depth
+        self.search_resource -= 3 * self.planning_depth
+
+        # width
+        if self.p == 1:
+            self.search_resource -= 3
+        elif self.p == 2:
+            self.search_resource -= 6
+        else:
+            self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
+        # depth
+        # self.search_resource -= 1 * self.planning_depth
+
         # width
         # if self.p == 1:
-        #     self.search_resource -= 3
+        #     self.search_resource -= 1
         # elif self.p == 2:
-        #     self.search_resource -= 6
+        #     self.search_resource -= 2
+        # elif self.p == 3:
+        #     self.search_resource -= 3
         # else:
-        #     self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
-        if self.p == 1:
-            self.search_resource -= 1
-        elif self.p == 2:
-            self.search_resource -= 2
-        elif self.p == 3:
-            self.search_resource -= 3
-        else:
-            self.search_resource -= 4
+        #     self.search_resource -= 4
 
     def __str__(self):
         return "MCTS"
@@ -313,7 +317,6 @@ class EMCTSPlayer(object):
     """AI player based on MCTS"""
 
     def __init__(self, policy_value_function, args, is_selfplay=0):
-
         self.mcts = MCTS(policy_value_function, args)
         self._is_selfplay = is_selfplay
         self.rl_model = args.rl_model

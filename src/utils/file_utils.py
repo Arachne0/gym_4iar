@@ -5,22 +5,17 @@ import wandb
 def initialize_wandb(args):
     common_config = {
         "entity": "hails",
-        "project": "gym_4iar_e",
+        "project": "gym_4iar",
         "config": args.__dict__
     }
-
-    if args.rl_model == "DQN":
+    if args.rl_model in ["AC", "EQRAC"]:
+        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}"
+    elif args.rl_model in "QRAC":
+        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Quantiles{args.quantiles}"
+    elif args.rl_model in ["DQN", "EQRDQN"]:
         run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Eps{args.epsilon}"
     elif args.rl_model == "QRDQN":
         run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Quantiles{args.quantiles}-Eps{args.epsilon}"
-    elif args.rl_model in ["AC", "QAC"]:
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}"
-    elif args.rl_model in ["QRAC", "QRQAC"]:
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Quantiles{args.quantiles}"
-    elif args.rl_model == "EQRDQN":
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.effi_n_playout}-Eps{args.epsilon}"
-    elif args.rl_model == "EQRQAC":
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.effi_n_playout}"
     else:
         raise ValueError("Model is not defined")
 
@@ -39,12 +34,10 @@ def create_models(args, i=None):
     model_params = {
         "DQN": f"_nmcts{args.n_playout}_eps{args.epsilon}",
         "QRDQN": f"_nmcts{args.n_playout}_quantiles{args.quantiles}_eps{args.epsilon}",
-        "EQRDQN": f"_nmcts{args.effi_n_playout}_eps{args.epsilon}",
+        "EQRDQN": f"_nmcts{args.n_playout}_eps{args.epsilon}",
         "AC": f"_nmcts{args.n_playout}",
-        "QAC": f"_nmcts{args.n_playout}",
         "QRAC": f"_nmcts{args.n_playout}_quantiles{args.quantiles}",
-        "QRQAC": f"_nmcts{args.n_playout}_quantiles{args.quantiles}",
-        "EQRQAC": f"_nmcts{args.effi_n_playout}"
+        "EQRAC": f"_nmcts{args.n_playout}"
     }
     if args.rl_model not in model_params:
         raise ValueError("Model is not defined")
@@ -70,13 +63,13 @@ def get_existing_files(args):
     elif args.rl_model == "QRDQN":
         path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}_quantiles{args.quantiles}_eps{args.epsilon}"
     elif args.rl_model == "EQRDQN":
-        path = f"{base_path}/{args.rl_model}_nmcts{args.effi_n_playout}_eps{args.epsilon}"
-    elif args.rl_model in ["AC", "QAC"]:
+        path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}_eps{args.epsilon}"
+    elif args.rl_model == "AC":
         path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}"
-    elif args.rl_model in ["QRAC", "QRQAC"]:
+    elif args.rl_model == "QRAC":
         path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}_quantiles{args.quantiles}"
     elif args.rl_model == "EQRQAC":
-        path = f"{base_path}/{args.rl_model}_nmcts{args.effi_n_playout}"
+        path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}"
     else:
         raise ValueError("Model is not defined")
 

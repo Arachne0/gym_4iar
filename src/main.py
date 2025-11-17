@@ -17,17 +17,17 @@ def get_args():
     # Tuning parameters
     parser.add_argument("--n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
     parser.add_argument("--quantiles", type=int, required=False, choices=[3, 9, 27, 81])
-    parser.add_argument("--epsilon", type=float, required=False, choices=[0.1, 0.4, 0.7])
 
     # Efficient search hyperparameters
     parser.add_argument("--effi_n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
     # parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
-    parser.add_argument("--search_resource", type=int, required=False, choices=[8, 80, 200, 400, 1600])
+    # parser.add_argument("--search_resource", type=int, required=False, choices=[8, 80, 200, 400, 1600])
 
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[
-        "DQN", "QRDQN", "AC", "QAC", "QRAC", "QRQAC", "EQRDQN", "EQRQAC"
+        "DQN", "QRDQN", "EQRDQN",  "AC", "QRAC", "EQRAC"
     ], help="RL model to use")
+    parser.add_argument("--epsilon", type=float, required=False, default=0.4)
 
     # MCTS parameters
     parser.add_argument("--c_puct", type=float, default=5.0)
@@ -145,9 +145,9 @@ def self_play(env, mcts_player, game_iter=0, self_play_i=0):
                 winner_index = 0 if winners == 1 else 1  # 0 is black, 1 is white
                 losers_index = 1 - winner_index
                 current_player = np.array(current_player)
+
                 winners_z[current_player == winner_index] = 1.0
                 winners_z[current_player == losers_index] = -1.0
-
             return winners, zip(states, mcts_probs, winners_z)
 
 
@@ -259,7 +259,7 @@ if __name__ == '__main__':
     obs_post[3] = obs[player0] + obs[player1]
 
     policy_value_net = PolicyValueNet(env.state().shape[1], env.state().shape[2], args)
-    if args.rl_model in ["EQRDQN", "EQRQAC"]:
+    if args.rl_model in ["EQRAC", "EQRDQN"]:
         curr_mcts_player = EMCTSPlayer(policy_value_net.policy_value_fn, args, is_selfplay=1)
     else:
         curr_mcts_player = MCTSPlayer(policy_value_net.policy_value_fn, args, is_selfplay=1)
@@ -270,11 +270,11 @@ if __name__ == '__main__':
     try:
         for i in range(args.training_iter):
             """collect self-play data each iteration 100 games"""
-            selfplay_batch = collect_selfplay_data(env, curr_mcts_player, i)  # 100 times
+            selfplay_batch = collect_selfplay_data(env, curr_mcts_player, i)
             train_buffer.append(selfplay_batch)
-
             end = time.time()
             print("Elapsed:", end - start)
+
             """Policy update with data buffer"""
             loss, entropy, lr_multiplier, policy_value_net = policy_update(lr_mul=args.lr_multiplier,
                                                                            policy_value_net=policy_value_net,
@@ -297,13 +297,13 @@ if __name__ == '__main__':
                 policy_value_net_old = PolicyValueNet(env.state_.shape[1], env.state_.shape[2], args, best_old_model)
 
                 """The most recent model with the highest win rate among the trained models"""
-                if args.rl_model in ["EQRDQN", "EQRQAC"]:
+                if args.rl_model in ["EQRAC", "EQRDQN"]:
                     old_mcts_player = EMCTSPlayer(policy_value_net_old.policy_value_fn, args, is_selfplay=0)
                 else:
                     old_mcts_player = MCTSPlayer(policy_value_net_old.policy_value_fn, args, is_selfplay=0)
 
-                """Training model"""
-                if args.rl_model in ["EQRDQN", "EQRQAC"]:
+                """Evaluation model"""
+                if args.rl_model in ["EQRAC", "EQRDQN"]:
                     curr_mcts_player = EMCTSPlayer(policy_value_net.policy_value_fn, args, is_selfplay=0)
                 else:
                     curr_mcts_player = MCTSPlayer(policy_value_net.policy_value_fn, args, is_selfplay=0)

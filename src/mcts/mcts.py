@@ -145,7 +145,7 @@ class MCTS(object):
 
                 """ use bellman optimality to cal state value """
                 leaf_value = masked_leaf_value[available].max()
-
+                action_probs = zip(available, action_probs[available])
                 """ use oracle """
                 """ calculate next node.select's node._Q """
                 # leaf_temp = node._Q + (leaf_value - node._Q)/ (node._n_visits+1)
@@ -159,17 +159,14 @@ class MCTS(object):
                 leaf_value = leaf_value.max()
                 action_probs = zip(available, action_probs[available])
 
-        else:  # state version AC, QRAC, QAC, QRQAC
+        else:  # state version AC, QRAC
             available, action_probs, leaf_value = self._policy(env)
+            if self.rl_model == "QRAC":
+                leaf_value = leaf_value.mean()
+
             action_probs = zip(available, action_probs[available])
 
-            if self.rl_model == "QRQAC":
-                leaf_value = leaf_value.mean(dim=0).squeeze()
-
-            if self.rl_model in ["QAC", "QRQAC"]:
-                leaf_value = leaf_value[available].mean()
-
-        if self.rl_model in ["QRDQN", "QRQAC"]:
+        if self.rl_model in ["QRDQN", "QRAC"]:
             self.number_of_quantiles += self.quantiles
 
         # Check for end of game
