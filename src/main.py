@@ -20,12 +20,12 @@ def get_args():
 
     # Efficient search hyperparameters
     parser.add_argument("--effi_n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
-    parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
-    # parser.add_argument("--search_resource", type=int, required=False, choices=[8, 80, 200, 400, 1600])
+    parser.add_argument("--search_resource", type=int, required=False, choices=[168, 1629, 4065, 8121, 32430])
+
 
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[
-        "DQN", "QRDQN", "EQRDQN",  "AC", "QRAC", "EQRAC"
+        "DQN", "QRDQN", "EQRDQN", "AC", "QRAC", "EQRAC"
     ], help="RL model to use")
     parser.add_argument("--epsilon", type=float, required=False, default=0.4)
 

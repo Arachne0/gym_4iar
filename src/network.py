@@ -306,7 +306,6 @@ class EQRAC(nn.Module):  # Efficient Quantile Regression action value actor crit
         x_val = x_val.view(-1, 2 * self.board_width * self.board_height)
         x_val = F.relu(self.val_fc1(x_val))
         x_val = self.val_fc2(x_val)
-        x_val = x_val.view(-1, self.N)
 
         return x_act, x_val
 
@@ -427,8 +426,12 @@ class PolicyValueNet:
                 else:  # "QRDQN",  "EQRDQN"
                     masked_value[:, available] = value[:, available]
                 value = torch.tensor(masked_value)
+                
+            if self.rl_model == "EQRAC":
+                value = value.squeeze(0)
 
         return available, masked_act_probs, value
+
 
     def train_step(self, state_batch, mcts_probs, winner_batch, lr):
         """perform a training step"""

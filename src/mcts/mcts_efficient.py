@@ -105,6 +105,34 @@ class TreeNode(object):
 
     def is_root(self):
         return self._parent is None
+    
+    def get_Q_value(self, action):
+        """
+        Returns the MCTS-estimated Q-value (self._Q) for a child node 
+        reached by the given action.
+        """
+        if action in self._children:
+            # The Q-value for action 'a' from state 's' is stored in 
+            # the child node corresponding to (s, a).
+            return self._children[action]._Q
+        return 0.0 # Return 0 for unvisited/non-existent actions
+
+    def get_sorted_actions(self):
+        """
+        Sorts all expanded actions based on their current MCTS Q-value (self._Q) 
+        in descending order.
+        Returns: A list of actions (integers/keys).
+        """
+        # Get the Q-value for each expanded child node
+        action_q_pairs = {
+            action: child_node._Q 
+            for action, child_node in self._children.items()
+        }
+    
+        # Sort the actions based on the Q-values in descending order
+        sorted_actions = sorted(action_q_pairs, key=action_q_pairs.get, reverse=True)
+        
+        return sorted_actions
 
     @property
     def children(self):
@@ -127,21 +155,17 @@ class MCTS(object):
         self._root = TreeNode(None, 1.0)
         self._policy = policy_value_fn
         self._c_puct = args.c_puct
-        self._n_playout = args.n_playout
         self.rl_model = args.rl_model
         self.epsilon = args.epsilon
         self.resource = 0
         self.search_resource = args.search_resource
 
         self.planning_depth = 1
-        # self.number_of_quantiles = 3
-        self.number_of_quantiles = 1
+        self.number_of_quantiles = 3
+        # self._n_playout = args.n_playout
         self.n_playout = 0
-        self.p = 3
-        # self.max_depth_mem = 3 * self.planning_depth
-        # self.max_width_mem = 81
-        self.max_depth_mem = 1 * self.planning_depth
-        self.max_width_mem = 4
+        self.max_depth_mem = 3 * self.planning_depth
+        self.max_width_mem = 81
 
         self.act_gap = 0
         self.threshold = 0.1
@@ -152,8 +176,8 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        self.planning_depth, self.number_of_quantiles = 1, 1
-
+        self.planning_depth, self.number_of_quantiles = 1, 3
+        
         while True:
             if node.is_leaf():
                 break
@@ -171,65 +195,158 @@ class MCTS(object):
             if len(available) > 0:
                 n_indices = get_fixed_indices(self.p)
                 action_probs_ = np.zeros_like(action_probs)
-                leaf_value_ = leaf_value[n_indices, :].cpu().mean(axis=0).squeeze()  # leaf_value shape : 2-dim to 1-dim
-
+                
                 if self.rl_model == "EQRDQN":
+                    leaf_value_ = leaf_value[n_indices, :].cpu().mean(axis=0).squeeze()  # leaf_value shape : 2-dim to 1-dim
                     idx_max = available[np.argmax(leaf_value_[available])]
                     action_probs_[idx_max] = 1
                     action_probs_[available] += self.epsilon / len(available)
                     action_probs_[idx_max] -= self.epsilon
                     action_probs = action_probs_
+                    
+                    _, idx_srted = leaf_value_.sort()
+                    act_gap = torch.abs(leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]])
+                    
+                    if act_gap > self.threshold:
+                        action_probs = zip(available, action_probs[available])
+                        leaf_value = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
+                        self.number_of_quantiles = 3 * self.p
+                        self.update_search_resource()
 
-                leaf_value_srted, idx_srted = leaf_value_.sort()
-                self.act_gap = torch.abs(leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]])
+                        # Check for end of game
+                        end, winners = env.winner()
 
-                if self.act_gap > self.threshold:
-                    action_probs = zip(available, action_probs[available])
-                    leaf_value = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
-
-                    self.number_of_quantiles = 1 * self.p
-                    self.update_search_resource()
-
-                    # Check for end of game
-                    end, winners = env.winner()
-
-                    if not end:
-                        node.expand(action_probs)
-                    else:
-                        if winners == 0:  # tie
-                            leaf_value = 0.0
-                        elif winners == env.turn():
-                            leaf_value = 1.0
+                        if not end:
+                            node.expand(action_probs)
                         else:
-                            leaf_value = -1.0
-                    node.update_recursive(-leaf_value)
-                    break
-
-                else:
-                    self.p += 1
-
-                if self.p == 5:
-                    action_probs = zip(available, action_probs[available])
-                    leaf_value = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
-
-                    self.p = 4
-                    self.number_of_quantiles = 81
-                    self.update_search_resource()
-
-                    # Check for end of game
-                    end, winners = env.winner()
-
-                    if not end:
-                        node.expand(action_probs)
+                            if winners == 0:  # tie
+                                leaf_value = 0.0
+                            elif winners == env.turn():
+                                leaf_value = 1.0
+                            else:
+                                leaf_value = -1.0
+                        node.update_recursive(-leaf_value)
+                        
                     else:
-                        if winners == 0:  # tie
-                            leaf_value = 0.0
-                        elif winners == env.turn():
-                            leaf_value = 1.0
+                        self.p += 1
+                        
+                    if self.p == 5:
+                        action_probs = zip(available, action_probs[available])
+                        leaf_value = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
+                        
+                        self.number_of_quantiles = 81
+                        self.update_search_resource()
+
+                        # Check for end of game
+                        end, winners = env.winner()
+
+                        if not end:
+                            node.expand(action_probs)
                         else:
-                            leaf_value = -1.0
-                    node.update_recursive(-leaf_value)
-                    break
+                            if winners == 0:  # tie
+                                leaf_value = 0.0
+                            elif winners == env.turn():
+                                leaf_value = 1.0
+                            else:
+                                leaf_value = -1.0
+                        node.update_recursive(-leaf_value)
+                        break
+         
+                elif self.rl_model == "EQRAC":
+                    available_probs = action_probs[available]
+                    end, _  = env.winner()
+                    
+                    if end == True:
+                        break
+                    
+                    if len(available_probs) >= 2:
+                        sorted_available = np.argsort(available_probs)[::-1]
+                        
+                        a_best = available[sorted_available[0]]
+                        a_second_best = available[sorted_available[1]]
+                        
+                        # Get V-Value for s_{t+1}^{1}
+                        env_copy_1 = copy.deepcopy(env)
+                        obs_1, reward_1, terminated_1, info_1 = env_copy_1.step(a_best)
+                        available_1, _, value_1 = self._policy(env_copy_1)
+                        
+                        # Get V-Value for s_{t+1}^{2}
+                        env_copy_2 = copy.deepcopy(env)
+                        obs_2, reward_2, terminated_2, info_2 = env_copy_2.step(a_second_best)
+                        available_2, _, value_2 = self._policy(env_copy_2)
+                        
+                        n_indices = get_fixed_indices(self.p)
+                        v_1 = value_1[n_indices].cpu().mean()
+                        v_2 = value_2[n_indices].cpu().mean()
+                        
+                        # Action Gap: | V(s_{t+1} | a_{best}) - V(s_t+1 | a_{second_best}) |
+                        act_gap = torch.abs(v_1 - v_2)
+                        
+                        if act_gap > self.threshold:
+                            leaf_value = v_1
+                            self.number_of_quantiles = 3 * self.p
+                            self.update_search_resource()
+
+                            # Check for end of game
+                            end, winners = env.winner()
+
+                            if not end:
+                                node.expand(action_probs)
+                            else:
+                                if winners == 0:  # tie
+                                    leaf_value = 0.0
+                                elif winners == env.turn():
+                                    leaf_value = 1.0
+                                else:
+                                    leaf_value = -1.0
+                            node.update_recursive(-leaf_value)
+                            break
+                        
+                        else:
+                            self.p += 1
+                            self.number_of_quantiles = 3 ** self.p
+                            
+                        if self.p == 5:
+                            action_probs = zip(available, action_probs[available])
+                            leaf_value = leaf_value.mean().cpu()
+                            
+                            self.p = 4
+                            self.number_of_quantiles = 81
+                            self.update_search_resource()
+
+                            # Check for end of game
+                            end, winners = env.winner()
+
+                            if not end:
+                                node.expand(action_probs)
+                            else:
+                                if winners == 0:  # tie
+                                    leaf_value = 0.0
+                                elif winners == env.turn():
+                                    leaf_value = 1.0
+                                else:
+                                    leaf_value = -1.0
+                            node.update_recursive(-leaf_value)
+                            break                                
+                                                 
+                    else:
+                        available, action_probs, leaf_value = self._policy(env)
+                        leaf_value = leaf_value.mean().cpu()
+                        action_probs = zip(available, action_probs[available])
+                        
+                        end, winners = env.winner()
+
+                        if not end:
+                            node.expand(action_probs)
+                        else:
+                            if winners == 0:  # tie
+                                leaf_value = 0.0
+                            elif winners == env.turn():
+                                leaf_value = 1.0
+                            else:
+                                leaf_value = -1.0
+                        node.update_recursive(-leaf_value)
+                        break
 
             else:
                 action_probs = zip(available, action_probs[available])
@@ -249,6 +366,7 @@ class MCTS(object):
                         leaf_value = -1.0
                 node.update_recursive(-leaf_value)
                 break
+
 
     def get_move_probs(self, env, temp):  # state.shape = (5,9,4)
         """Run all playouts sequentially and return the available actions and
@@ -293,22 +411,16 @@ class MCTS(object):
         if self.p == 1:
             self.search_resource -= 3
         elif self.p == 2:
-            self.search_resource -= 6
+            self.search_resource -= 9
+        elif self.p == 3:
+            self.search_resource -= 27
+        elif self.p == 4:
+            self.search_resource -= 81
+            # self.search_resource -= 6
+            # self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
         else:
-            self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
-        # depth
-        # self.search_resource -= 1 * self.planning_depth
-
-        # width
-        # if self.p == 1:
-        #     self.search_resource -= 1
-        # elif self.p == 2:
-        #     self.search_resource -= 2
-        # elif self.p == 3:
-        #     self.search_resource -= 3
-        # else:
-        #     self.search_resource -= 4
-
+            raise ValueError
+        
     def __str__(self):
         return "MCTS"
 
@@ -330,7 +442,7 @@ class EMCTSPlayer(object):
     def reset_player(self):
         self.mcts.update_with_move(-1)
 
-    def get_action(self, env, temp=0.1, game_iter=0,return_prob=0):  # env.state_.shape = (5,9,4)
+    def get_action(self, env, temp=0.1, game_iter=0, return_prob=0):  # env.state_.shape = (5,9,4)
         sensible_moves = np.nonzero(env.state_[3].flatten() == 0)[0]
         move_probs = np.zeros(env.state_.shape[1] * env.state_.shape[2])
         self.mcts.search_resource = self.resource
@@ -340,7 +452,6 @@ class EMCTSPlayer(object):
 
             pd, nq = self.mcts.planning_depth, self.mcts.number_of_quantiles
             p, n_playout = self.mcts.p, self.mcts.n_playout
-            act_gap = self.mcts.act_gap
 
             move_probs[list(acts)] = probs
 
@@ -365,7 +476,6 @@ class EMCTSPlayer(object):
                         f"{graph_name}_nq": nq,
                         f"{graph_name}_n_playout": n_playout,
                         f"{graph_name}_full_search_rate": 1 if p == 4 else 0,
-                        f"{graph_name}_action_gap": act_gap,
 
                     })
                 return move, move_probs

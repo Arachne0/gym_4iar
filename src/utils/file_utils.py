@@ -10,7 +10,7 @@ def initialize_wandb(args):
     }
     if args.rl_model in ["AC", "EQRAC"]:
         run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}"
-    elif args.rl_model in "QRAC":
+    elif args.rl_model == "QRAC":
         run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Quantiles{args.quantiles}"
     elif args.rl_model in ["DQN", "EQRDQN"]:
         run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Eps{args.epsilon}"
@@ -68,7 +68,7 @@ def get_existing_files(args):
         path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}"
     elif args.rl_model == "QRAC":
         path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}_quantiles{args.quantiles}"
-    elif args.rl_model == "EQRQAC":
+    elif args.rl_model == "EQRAC":
         path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}"
     else:
         raise ValueError("Model is not defined")
