@@ -205,24 +205,24 @@ class MCTS(object):
                     act_gap = torch.abs(leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]])
                     
                     if act_gap > self.threshold:
-                        action_probs = zip(available, action_probs[available])
-                        leaf_value = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
+                        action_probs_zip = zip(available, action_probs[available])
+                        leaf_value_dqn = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
                         self.number_of_quantiles = 3 * self.p
 
                         self.update_search_resource()
-                        self.leaf_update(action_probs, leaf_value, env, node)
+                        self.leaf_update(action_probs_zip, leaf_value_dqn, env, node)
                         
                     else:
                         self.p += 1
                         
                     if self.p == 5:
-                        action_probs = zip(available, action_probs[available])
-                        leaf_value = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
+                        action_probs_zip = zip(available, action_probs[available])
+                        leaf_value_dqn = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
                         self.p = 4
                         self.number_of_quantiles = 3 ** self.p
 
                         self.update_search_resource()
-                        self.leaf_update(action_probs, leaf_value, env, node)
+                        self.leaf_update(action_probs_zip, leaf_value_dqn, env, node)
          
                 elif self.rl_model == "EQRAC":
                     available_probs = action_probs[available]
@@ -256,7 +256,7 @@ class MCTS(object):
                         act_gap = torch.abs(v_1 - v_2)
                         
                         if act_gap > self.threshold:  # sufficient action gap
-                            action_probs = zip(available, action_probs[available])
+                            action_probs_zip = zip(available, action_probs[available])
 
                             self.update_search_resource()
                             self.leaf_update(action_probs, v_1,  env, node)
@@ -266,31 +266,31 @@ class MCTS(object):
                             self.number_of_quantiles = 3 ** self.p
                             
                         if self.p == 5:  # quantiles = 243 -> 81
-                            action_probs = zip(available, action_probs[available])
+                            action_probs_zip = zip(available, action_probs[available])
                             leaf_value = leaf_value.mean().cpu()
                             self.p = 4
                             self.number_of_quantiles = 81
 
                             self.update_search_resource()
-                            self.leaf_update(action_probs, leaf_value, env, node)
+                            self.leaf_update(action_probs_zip, leaf_value, env, node)
                                                  
                     else:
-                        action_probs = zip(available, action_probs[available])
+                        action_probs_zip = zip(available, action_probs[available])
                         leaf_value = leaf_value.mean().cpu()
 
                         self.search_resource = 0
-                        self.leaf_update(action_probs, leaf_value, env, node)
+                        self.leaf_update(action_probs_zip, leaf_value, env, node)
                         break
 
                 else:
                     raise ValueError("rl_model should be EQRDQN or EQRAC")
 
             else:  # ended game
-                action_probs = zip(available, action_probs[available])
+                action_probs_zip = zip(available, action_probs[available])
                 self.search_resource = 0
                 leaf_value = get_leaf_value(leaf_value, self.rl_model)
 
-                self.leaf_update(action_probs, leaf_value, env, node)
+                self.leaf_update(action_probs_zip, leaf_value, env, node)
                 break
 
     def leaf_update(self, action_probs, value, env, node):
