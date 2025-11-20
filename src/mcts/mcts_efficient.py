@@ -211,7 +211,6 @@ class MCTS(object):
 
                         self.update_search_resource()
                         self.leaf_update(action_probs, leaf_value, env, node)
-                        break
                         
                     else:
                         self.p += 1
@@ -224,7 +223,6 @@ class MCTS(object):
 
                         self.update_search_resource()
                         self.leaf_update(action_probs, leaf_value, env, node)
-                        break
          
                 elif self.rl_model == "EQRAC":
                     available_probs = action_probs[available]
@@ -262,7 +260,6 @@ class MCTS(object):
 
                             self.update_search_resource()
                             self.leaf_update(action_probs, v_1,  env, node)
-                            break
 
                         else:  # need more quantiles
                             self.p += 1
@@ -276,7 +273,6 @@ class MCTS(object):
 
                             self.update_search_resource()
                             self.leaf_update(action_probs, leaf_value, env, node)
-                            break
                                                  
                     else:
                         action_probs = zip(available, action_probs[available])
