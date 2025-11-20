@@ -259,7 +259,7 @@ class MCTS(object):
                             action_probs_zip = zip(available, action_probs[available])
 
                             self.update_search_resource()
-                            self.leaf_update(action_probs, v_1,  env, node)
+                            self.leaf_update(action_probs_zip, v_1,  env, node)
 
                         else:  # need more quantiles
                             self.p += 1
@@ -311,7 +311,6 @@ class MCTS(object):
             else:
                 leaf_value = -1.0
         node.update_recursive(-leaf_value)
-
 
     def get_move_probs(self, env, temp):  # state.shape = (5,9,4)
         """Run all playouts sequentially and return the available actions and
