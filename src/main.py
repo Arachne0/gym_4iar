@@ -22,7 +22,7 @@ def get_args():
     parser.add_argument("--effi_n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
     parser.add_argument("--search_resource", type=int, required=False, choices=[168, 1629, 4065, 8121, 32430])
 
-
+    
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[
         "DQN", "QRDQN", "EQRDQN", "AC", "QRAC", "EQRAC"
