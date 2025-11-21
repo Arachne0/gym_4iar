@@ -112,16 +112,14 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        self.planning_depth, self.number_of_quantiles = 0, 3
 
         while True:
-            self.planning_depth += 1
             if node.is_leaf():
                 break
-
             # Greedily select next move.
             action, node = node.select(self._c_puct)
             obs, reward, terminated, info = env.step(action)
+            self.planning_depth += 1
 
         if self.rl_model in ["DQN", "QRDQN"]:
             available, _, leaf_value = self._policy(env)
@@ -165,9 +163,6 @@ class MCTS(object):
                 leaf_value = leaf_value.mean()
 
             action_probs = zip(available, action_probs[available])
-
-        if self.rl_model in ["QRDQN", "QRAC"]:
-            self.number_of_quantiles += self.quantiles
 
         # Check for end of game
         end, winners = env.winner()

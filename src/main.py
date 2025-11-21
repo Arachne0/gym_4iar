@@ -20,9 +20,8 @@ def get_args():
 
     # Efficient search hyperparameters
     parser.add_argument("--effi_n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
-    parser.add_argument("--search_resource", type=int, required=False, choices=[168, 1629, 4065, 8121, 32430])
+    parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
 
-    
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[
         "DQN", "QRDQN", "EQRDQN", "AC", "QRAC", "EQRAC"
@@ -32,7 +31,6 @@ def get_args():
     # MCTS parameters
     parser.add_argument("--c_puct", type=float, default=5.0)
     parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--training_iter", type=int, default=100)
 
     # Policy update parameters
     parser.add_argument("--batch_size", type=int, default=64)
@@ -40,6 +38,7 @@ def get_args():
     parser.add_argument("--lr_multiplier", type=float, default=1.0)
     parser.add_argument("--lr_mul", type=float, default=1.0)
     parser.add_argument("--kl_targ", type=float, default=0.02)
+    parser.add_argument("--training_iter", type=int, default=100)
 
     # Evaluation
     parser.add_argument("--init_model", type=str, default=None)
@@ -166,7 +165,7 @@ def policy_update(lr_mul, policy_value_net, data_buffers=None, rl_model=None):
         loss, entropy = policy_value_net.train_step(state_batch,
                                                     mcts_probs_batch,
                                                     winner_batch,
-                                                    args.learn_rate * lr_multiplier)
+                                                    args.learn_rate)
     else:
         old_probs, old_v = policy_value_net.policy_value(state_batch)
 
@@ -200,7 +199,7 @@ def policy_evaluate(env, curr_mcts_player, old_mcts_player, game_iter, n_games=3
     win_cnt = defaultdict(int)
 
     for j in range(n_games):
-        winner = start_play(env, curr_mcts_player, old_mcts_player, game_iter)
+        winner = start_play(env, curr_mcts_player, old_mcts_player)
         win_cnt[winner] += 1
         print(f"game: {game_iter+1}, evaluate:{j + 1}")
 
@@ -209,7 +208,7 @@ def policy_evaluate(env, curr_mcts_player, old_mcts_player, game_iter, n_games=3
     return win_ratio, curr_mcts_player
 
 
-def start_play(env, player1, player2, game_iter):
+def start_play(env, player1, player2):
     """start a game between two players"""
     obs, _ = env.reset()
     players = [0, 1]
@@ -285,7 +284,6 @@ if __name__ == '__main__':
 
             if i == 0:
                 """make mcts agent training, eval version"""
-                # policy_evaluate(env, curr_mcts_player, curr_mcts_player, i)
                 model_file, eval_model_file = create_models(args, i)
                 policy_value_net.save_model(model_file)
                 policy_value_net.save_model(eval_model_file)

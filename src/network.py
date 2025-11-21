@@ -357,7 +357,6 @@ class PolicyValueNet:
         self.N = args.quantiles
         self.rl_model = args.rl_model
         self.old_model = old_model
-        self.trained_model = args.init_model
 
         self.device = (
             torch.device("cuda") if torch.cuda.is_available()
@@ -383,9 +382,17 @@ class PolicyValueNet:
 
         self.optimizer = optim.Adam(self.policy_value_net.parameters(),
                                     weight_decay=self.l2_const)
-        if args.init_model:
-            state_dict = torch.load(args.init_model, map_location=self.device, weights_only=True)
+
+        if self.old_model is not None:
+            state_dict = torch.load(old_model, map_location='cpu')
             self.policy_value_net.load_state_dict(state_dict)
+            print(f"Loaded old model weights from {old_model}")
+        elif args.init_model:
+            state_dict = torch.load(args.init_model, map_location='cpu')
+            self.policy_value_net.load_state_dict(state_dict)
+            print(f"Loaded model weights from {args.init_model}")
+        else:
+            print("Not loading any model weights.")
 
     def policy_value(self, state_batch):
         """
@@ -431,7 +438,6 @@ class PolicyValueNet:
                 value = value.squeeze(0)
 
         return available, masked_act_probs, value
-
 
     def train_step(self, state_batch, mcts_probs, winner_batch, lr):
         """perform a training step"""

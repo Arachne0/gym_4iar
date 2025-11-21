@@ -20,9 +20,9 @@ def get_leaf_value(leaf_value_, rl_model, idx_srted=None):
     if rl_model == "EQRDQN":
         if idx_srted is not None:
             return leaf_value_[idx_srted[-1]]  # max Q-value from sorted index
-        return leaf_value_.max()               # fallback to max
+        return leaf_value_.max()  # fallback to max
     elif rl_model == "EQRAC":
-        return leaf_value_.mean()              # mean regardless of idx_srted
+        return leaf_value_.mean()  # mean regardless of idx_srted
     else:
         raise ValueError(f"Unsupported rl_model: {rl_model}")
 
@@ -105,33 +105,33 @@ class TreeNode(object):
 
     def is_root(self):
         return self._parent is None
-    
+
     def get_Q_value(self, action):
         """
-        Returns the MCTS-estimated Q-value (self._Q) for a child node 
+        Returns the MCTS-estimated Q-value (self._Q) for a child node
         reached by the given action.
         """
         if action in self._children:
-            # The Q-value for action 'a' from state 's' is stored in 
+            # The Q-value for action 'a' from state 's' is stored in
             # the child node corresponding to (s, a).
             return self._children[action]._Q
-        return 0.0 # Return 0 for unvisited/non-existent actions
+        return 0.0  # Return 0 for unvisited/non-existent actions
 
     def get_sorted_actions(self):
         """
-        Sorts all expanded actions based on their current MCTS Q-value (self._Q) 
+        Sorts all expanded actions based on their current MCTS Q-value (self._Q)
         in descending order.
         Returns: A list of actions (integers/keys).
         """
         # Get the Q-value for each expanded child node
         action_q_pairs = {
-            action: child_node._Q 
+            action: child_node._Q
             for action, child_node in self._children.items()
         }
-    
+
         # Sort the actions based on the Q-values in descending order
         sorted_actions = sorted(action_q_pairs, key=action_q_pairs.get, reverse=True)
-        
+
         return sorted_actions
 
     @property
@@ -157,15 +157,12 @@ class MCTS(object):
         self._c_puct = args.c_puct
         self.rl_model = args.rl_model
         self.epsilon = args.epsilon
+        self.planning_depth = 0
+
         self.resource = 0
         self.search_resource = args.search_resource
-
-        self.planning_depth = 1
-        self.number_of_quantiles = 3
-        # self._n_playout = args.n_playout
         self.n_playout = 0
-        self.max_depth_mem = 3 * self.planning_depth
-        self.max_width_mem = 81
+        self.max_width = 81
         self.act_gap = 0
         self.threshold = 0.1
 
@@ -175,10 +172,9 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        
+
         while True:
             if node.is_leaf():
-                self.max_depth_mem = 3 * self.planning_depth
                 break
             # Greedily select next move.
             action, node = node.select(self._c_puct)
@@ -188,99 +184,80 @@ class MCTS(object):
         available, action_probs, leaf_value = self._policy(env)
         self.p = 1
 
-        while self.search_resource >= (self.max_depth_mem + self.max_width_mem):
+        while self.search_resource >= self.max_width:
             if len(available) > 0:
                 n_indices = get_fixed_indices(self.p)
                 action_probs_ = np.zeros_like(action_probs)
-                
+
                 if self.rl_model == "EQRDQN":
-                    leaf_value_ = leaf_value[n_indices, :].cpu().mean(axis=0).squeeze()  # leaf_value shape : 2-dim to 1-dim
+                    leaf_value_ = leaf_value[n_indices, :].cpu().mean(
+                        axis=0).squeeze()  # leaf_value shape : 2-dim to 1-dim
                     idx_max = available[np.argmax(leaf_value_[available])]
                     action_probs_[idx_max] = 1
                     action_probs_[available] += self.epsilon / len(available)
                     action_probs_[idx_max] -= self.epsilon
                     action_probs = action_probs_
-                    
+
                     _, idx_srted = leaf_value_.sort()
                     act_gap = torch.abs(leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]])
-                    
+                    leaf_value_max = leaf_value_[idx_srted[-1]]
+
                     if act_gap > self.threshold:
                         action_probs_zip = zip(available, action_probs[available])
-                        leaf_value_dqn = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
-                        self.number_of_quantiles = 3 * self.p
+                        self.leaf_update(action_probs_zip, leaf_value_max, env, node)
 
-                        self.update_search_resource()
-                        self.leaf_update(action_probs_zip, leaf_value_dqn, env, node)
-                        
                     else:
                         self.p += 1
-                        
+                        self.update_search_resource()
+
                     if self.p == 5:
                         action_probs_zip = zip(available, action_probs[available])
-                        leaf_value_dqn = get_leaf_value(leaf_value_, self.rl_model, idx_srted)
                         self.p = 4
-                        self.number_of_quantiles = 3 ** self.p
+                        self.leaf_update(action_probs_zip, leaf_value_max, env, node)
 
-                        self.update_search_resource()
-                        self.leaf_update(action_probs_zip, leaf_value_dqn, env, node)
-         
                 elif self.rl_model == "EQRAC":
                     available_probs = action_probs[available]
-                    end, _ = env.winner()
-
-                    if end:  # ended game
-                        self.search_resource = 0
-                        break
 
                     if len(available_probs) >= 2:
                         sorted_available = np.argsort(available_probs)[::-1]
-                        
+
                         a_best = available[sorted_available[0]]
                         a_second_best = available[sorted_available[1]]
-                        
+
                         # Get V-Value for s_{t+1}^{1}
                         env_copy_1 = copy.deepcopy(env)
                         obs_1, reward_1, terminated_1, info_1 = env_copy_1.step(a_best)
                         available_1, _, value_1 = self._policy(env_copy_1)
-                        
+
                         # Get V-Value for s_{t+1}^{2}
                         env_copy_2 = copy.deepcopy(env)
                         obs_2, reward_2, terminated_2, info_2 = env_copy_2.step(a_second_best)
                         available_2, _, value_2 = self._policy(env_copy_2)
-                        
+
                         n_indices = get_fixed_indices(self.p)
-                        v_1 = value_1[n_indices].cpu().mean()
-                        v_2 = value_2[n_indices].cpu().mean()
-                        
+                        leaf_value_max = value_1[n_indices].cpu().mean()
+                        leaf_value_second = value_2[n_indices].cpu().mean()
+
                         # Action Gap: | V(s_{t+1} | a_{best}) - V(s_t+1 | a_{second_best}) |
-                        act_gap = torch.abs(v_1 - v_2)
-                        
+                        act_gap = torch.abs(leaf_value_max - leaf_value_second)
+
                         if act_gap > self.threshold:  # sufficient action gap
                             action_probs_zip = zip(available, action_probs[available])
-
-                            self.update_search_resource()
-                            self.leaf_update(action_probs_zip, v_1,  env, node)
+                            self.leaf_update(action_probs_zip, leaf_value_max, env, node)
 
                         else:  # need more quantiles
                             self.p += 1
-                            self.number_of_quantiles = 3 ** self.p
-                            
+                            self.update_search_resource()
+
                         if self.p == 5:  # quantiles = 243 -> 81
                             action_probs_zip = zip(available, action_probs[available])
-                            leaf_value = leaf_value.mean().cpu()
                             self.p = 4
-                            self.number_of_quantiles = 81
+                            self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
 
-                            self.update_search_resource()
-                            self.leaf_update(action_probs_zip, leaf_value, env, node)
-                                                 
-                    else:
+                    else:  # available_probs < 2
                         action_probs_zip = zip(available, action_probs[available])
-                        leaf_value = leaf_value.mean().cpu()
-
                         self.search_resource = 0
-                        self.leaf_update(action_probs_zip, leaf_value, env, node)
-                        break
+                        self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
 
                 else:
                     raise ValueError("rl_model should be EQRDQN or EQRAC")
@@ -288,14 +265,9 @@ class MCTS(object):
             else:  # ended game
                 action_probs_zip = zip(available, action_probs[available])
                 self.search_resource = 0
-                leaf_value = get_leaf_value(leaf_value, self.rl_model)
+                self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
 
-                self.leaf_update(action_probs_zip, leaf_value, env, node)
-                break
-
-    def leaf_update(self, action_probs, value, env, node):
-        leaf_value = value
-        self.number_of_quantiles = 3 * self.p
+    def leaf_update(self, action_probs, leaf_value, env, node):
         self.update_search_resource()
 
         # Check for end of game
@@ -312,16 +284,16 @@ class MCTS(object):
                 leaf_value = -1.0
         node.update_recursive(-leaf_value)
 
-    def get_move_probs(self, env, temp):  # state.shape = (5,9,4)
+    def get_move_probs(self, env, game_iter, temp):  # state.shape = (5,9,4)
         """Run all playouts sequentially and return the available actions and
         their corresponding probabilities.
         state: the current game state
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
         self.n_playout = 0
-        while self.search_resource > (self.max_depth_mem + self.max_width_mem):
+        while self.search_resource >= self.max_width:
             env_copy = copy.deepcopy(env)
-            self.planning_depth, self.number_of_quantiles = 1, 3
+            self.planning_depth = 1
             self.n_playout += 1
             self._playout(env_copy)
 
@@ -331,10 +303,19 @@ class MCTS(object):
         acts, visits = zip(*act_visits)
 
         if temp == 1:
-            act_probs = softmax(1.0/temp * np.log(np.array(visits) + 1e-10))
+            act_probs = softmax(1.0 / temp * np.log(np.array(visits) + 1e-10))
         else:
             act_probs = np.zeros(len(acts))
             act_probs[random_argmax(np.array(visits))] = 1.0
+
+        if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
+            graph_name = f"training/game_iter_{game_iter + 1}"
+            wandb.log({
+                f"{graph_name}_pd": self.planning_depth,
+                f"{graph_name}_nq": 3 ** self.p,
+                f"{graph_name}_n_playout": self.n_playout,
+                f"{graph_name}_full_search_rate": 1 if self.p == 4 else 0,
+            })
 
         return acts, act_probs
 
@@ -349,23 +330,15 @@ class MCTS(object):
             self._root = TreeNode(None, 1.0)
 
     def update_search_resource(self):
-        # depth
-        self.search_resource -= 3 * self.planning_depth
-
-        # width
         if self.p == 1:
             self.search_resource -= 3
         elif self.p == 2:
-            self.search_resource -= 9
-        elif self.p == 3:
-            self.search_resource -= 27
-        elif self.p == 4:
-            self.search_resource -= 81
-            # self.search_resource -= 6
-            # self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
+            self.search_resource -= 6
+        elif self.p == 3 or 4:
+            self.search_resource -= 3 * (3 ** (self.p - 2)) * (2 ** min(1, self.p - 1))
         else:
-            raise ValueError
-        
+            raise ValueError("p should be between 1 and 4")
+
     def __str__(self):
         return "MCTS"
 
@@ -393,11 +366,7 @@ class EMCTSPlayer(object):
         self.mcts.search_resource = self.resource
 
         if len(sensible_moves) > 0:
-            acts, probs = self.mcts.get_move_probs(env, temp)  # env.state_.shape = (5,9,4)
-
-            pd, nq = self.mcts.planning_depth, self.mcts.number_of_quantiles
-            p, n_playout = self.mcts.p, self.mcts.n_playout
-
+            acts, probs = self.mcts.get_move_probs(env, game_iter, temp)  # env.state_.shape = (5,9,4)
             move_probs[list(acts)] = probs
 
             if self._is_selfplay:
@@ -414,15 +383,6 @@ class EMCTSPlayer(object):
                 self.mcts.update_with_move(-1)
 
             if return_prob:
-                if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
-                    graph_name = f"training/game_iter_{game_iter + 1}"
-                    wandb.log({
-                        f"{graph_name}_pd": pd,
-                        f"{graph_name}_nq": nq,
-                        f"{graph_name}_n_playout": n_playout,
-                        f"{graph_name}_full_search_rate": 1 if p == 4 else 0,
-
-                    })
                 return move, move_probs
             else:
                 return move
