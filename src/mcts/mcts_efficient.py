@@ -162,6 +162,7 @@ class MCTS(object):
         self.resource = 0
         self.search_resource = args.search_resource
         self.n_playout = 0
+        self.p = 1  # number of quantiles
         self.max_width = 81
         self.act_gap = 0
         self.threshold = 0.1
@@ -304,8 +305,9 @@ class MCTS(object):
                     f"{graph_name}_n_playout": self.n_playout,
                     f"{graph_name}_full_search_rate": 1 if self.p == 4 else 0,
             })
-            self.n_playout = 0
+            self.planning_depth = 0  
             self.p = 1
+            self.n_playout = 0
 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)

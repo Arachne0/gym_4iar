@@ -191,9 +191,10 @@ class MCTS(object):
             if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
                 graph_name = f"training/game_iter_{game_iter + 1}"
                 wandb.log({
-                    f"{graph_name}_pd": pd,
-                    f"{graph_name}_nq": nq
+                    f"{graph_name}_pd": self.planning_depth,
+                    f"{graph_name}_nq": self.number_of_quantiles
             })
+            self.planning_depth = 0  
 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
