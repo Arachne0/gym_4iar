@@ -265,9 +265,10 @@ if __name__ == '__main__':
 
     train_buffer = deque(maxlen=20)
     best_old_model = None
-
+    start_iter = 0
+    
     try:
-        for i in range(args.training_iter):
+        for i in range(start_iter, args.training_iter):
             """collect self-play data each iteration 100 games"""
             selfplay_batch = collect_selfplay_data(env, curr_mcts_player, i)
             train_buffer.append(selfplay_batch)
