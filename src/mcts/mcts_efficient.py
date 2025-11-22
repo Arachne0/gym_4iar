@@ -290,12 +290,22 @@ class MCTS(object):
         state: the current game state
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
-        self.n_playout = 0
         while self.search_resource >= self.max_width:
             env_copy = copy.deepcopy(env)
             self.planning_depth = 1
             self.n_playout += 1
             self._playout(env_copy)
+            
+            if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
+                graph_name = f"training/game_iter_{game_iter + 1}"
+                wandb.log({
+                    f"{graph_name}_pd": self.planning_depth,
+                    f"{graph_name}_nq": 3 ** self.p,
+                    f"{graph_name}_n_playout": self.n_playout,
+                    f"{graph_name}_full_search_rate": 1 if self.p == 4 else 0,
+            })
+            self.n_playout = 0
+            self.p = 1
 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
@@ -307,15 +317,6 @@ class MCTS(object):
         else:
             act_probs = np.zeros(len(acts))
             act_probs[random_argmax(np.array(visits))] = 1.0
-
-        if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
-            graph_name = f"training/game_iter_{game_iter + 1}"
-            wandb.log({
-                f"{graph_name}_pd": self.planning_depth,
-                f"{graph_name}_nq": 3 ** self.p,
-                f"{graph_name}_n_playout": self.n_playout,
-                f"{graph_name}_full_search_rate": 1 if self.p == 4 else 0,
-            })
 
         return acts, act_probs
 

@@ -178,7 +178,7 @@ class MCTS(object):
                 leaf_value = -1.0
         node.update_recursive(-leaf_value)
 
-    def get_move_probs(self, env, temp):  # state.shape = (5,9,4)
+    def get_move_probs(self, env, game_iter, temp):  # state.shape = (5,9,4)
         """Run all playouts sequentially and return the available actions and
         their corresponding probabilities.
         state: the current game state
@@ -187,6 +187,13 @@ class MCTS(object):
         for n in range(self._n_playout):  # for 400 times
             env_copy = copy.deepcopy(env)
             self._playout(env_copy)
+            
+            if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
+                graph_name = f"training/game_iter_{game_iter + 1}"
+                wandb.log({
+                    f"{graph_name}_pd": pd,
+                    f"{graph_name}_nq": nq
+            })
 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
@@ -237,7 +244,6 @@ class MCTSPlayer(object):
 
         if len(sensible_moves) > 0:
             acts, probs = self.mcts.get_move_probs(env, temp)
-            pd, nq = self.mcts.planning_depth, self.mcts.number_of_quantiles  # env.state_.shape = (5,9,4)
             move_probs[list(acts)] = probs
 
             if self._is_selfplay:
@@ -254,12 +260,6 @@ class MCTSPlayer(object):
                 self.mcts.update_with_move(-1)
 
             if return_prob:
-                if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
-                    graph_name = f"training/game_iter_{game_iter + 1}"
-                    wandb.log({
-                        f"{graph_name}_pd": pd,
-                        f"{graph_name}_nq": nq
-                    })
                 return move, move_probs
             else:
                 return move
