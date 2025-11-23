@@ -98,7 +98,7 @@ def collect_selfplay_data(env, mcts_player, game_iter, n_games=100):
     return data_buffer
 
 
-def self_play(env, mcts_player, game_iter=0, self_play_i=0):
+def self_play(env, mcts_player, game_iter, self_play_i=0):
     obs, _ = env.reset()
     states, mcts_probs, current_player = [], [], []
 
@@ -111,7 +111,7 @@ def self_play(env, mcts_player, game_iter=0, self_play_i=0):
 
     while True:
         temp = 1 if env.state_[3].sum() <= 15 else 0
-        move, move_probs = mcts_player.get_action(env, temp, game_iter, return_prob=1)
+        move, move_probs = mcts_player.get_action(env, game_iter, temp, return_prob=1)
 
         # store the data
         states.append(obs_post.copy())

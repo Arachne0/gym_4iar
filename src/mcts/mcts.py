@@ -102,9 +102,8 @@ class MCTS(object):
         self._n_playout = args.n_playout
         self.rl_model = args.rl_model
         self.epsilon = args.epsilon
-        self.quantiles = args.quantiles
         self.planning_depth = 0
-        self.number_of_quantiles = 0
+        self.number_of_quantiles = args.quantiles
 
     def _playout(self, env):
         """Run a single playout from the root to the leaf, getting a value at
@@ -239,7 +238,7 @@ class MCTSPlayer(object):
     def reset_player(self):
         self.mcts.update_with_move(-1)
 
-    def get_action(self, env, game_iter=0, temp=0.1, return_prob=0):  # env.state_.shape = (5,9,4)
+    def get_action(self, env, game_iter=None, temp=0.1, return_prob=0):  # env.state_.shape = (5,9,4)
         sensible_moves = np.nonzero(env.state_[3].flatten() == 0)[0]
         move_probs = np.zeros(env.state_.shape[1] * env.state_.shape[2])
 
