@@ -238,7 +238,7 @@ class MCTSPlayer(object):
     def reset_player(self):
         self.mcts.update_with_move(-1)
 
-    def get_action(self, env, game_iter=None, temp=0.1, return_prob=0):  # env.state_.shape = (5,9,4)
+    def get_action(self, env, game_iter=-1, temp=0.1, return_prob=0):  # env.state_.shape = (5,9,4)
         sensible_moves = np.nonzero(env.state_[3].flatten() == 0)[0]
         move_probs = np.zeros(env.state_.shape[1] * env.state_.shape[2])
 
