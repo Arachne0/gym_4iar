@@ -129,7 +129,6 @@ class MCTS(object):
         self._c_puct = args.c_puct
         self.rl_model = args.rl_model
         self.epsilon = args.epsilon
-        # self.planning_depth = 0
 
         self.resource = 0
         self.search_resource = args.search_resource
@@ -272,7 +271,6 @@ class MCTS(object):
 
     def leaf_update(self, action_probs, leaf_value, env, node):
         self.update_depth_resource()
-        print("self.planning_depth:", self.planning_depth)
 
         # Check for end of game
         end, winners = env.winner()
