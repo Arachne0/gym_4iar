@@ -211,7 +211,7 @@ def policy_evaluate(env, curr_mcts_player, old_mcts_player, game_iter, n_games=3
         else:
             ties += 1
         
-        print(f"Game {game_iter}-{i+1} (Black): Result {winner}")
+        print(f"Game {game_iter+1}-{i+1} (Black): Result {winner}")
     
     for i in range(games):
         winner = start_play(env, old_mcts_player, curr_mcts_player, turn=1)
@@ -223,7 +223,7 @@ def policy_evaluate(env, curr_mcts_player, old_mcts_player, game_iter, n_games=3
         else:
             ties += 1
             
-        print(f"Game {game_iter}-{games+i+1} (White): Result {winner}")
+        print(f"Game {game_iter+1}-{games+i+1} (White): Result {winner}")
 
     win_ratio = 1.0 * trained_model_wins / n_games
     

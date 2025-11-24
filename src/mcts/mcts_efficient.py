@@ -203,8 +203,15 @@ class MCTS(object):
                         self.leaf_update(action_probs_zip, leaf_value_max, env, node)
 
                     else:
-                        self.p += 1
-                        self.update_quantile_resource()
+                        if self.search_resource < self.check_search_resource():
+                            action_probs_zip = zip(available, action_probs[available])
+                            self.leaf_update(action_probs_zip, leaf_value_max, env, node)
+                            self.search_resource = 0 
+                            break
+                        
+                        else:
+                            self.update_quantile_resource()
+                            self.p += 1
 
                     if self.p == 5:
                         action_probs_zip = zip(available, action_probs[available])
@@ -227,9 +234,16 @@ class MCTS(object):
                             self.leaf_update(action_probs_zip, leaf_value_best, env, node)
                             
                         else:
-                            self.update_quantile_resource()
-                            self.p += 1
+                            if self.search_resource < self.check_search_resource():
+                                action_probs_zip = zip(available, action_probs[available])
+                                self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                                self.search_resource = 0 
+                                break
                             
+                            else:
+                                self.update_quantile_resource()
+                                self.p += 1
+                                
                         if self.p == 5:
                             action_probs_zip = zip(available, action_probs[available])
                             self.p = 4
@@ -252,7 +266,7 @@ class MCTS(object):
 
 
     def leaf_update(self, action_probs, leaf_value, env, node):
-        self.update_depth_resource()
+        # self.update_depth_resource()
         self.update_quantile_resource()
 
         # Check for end of game
@@ -268,6 +282,15 @@ class MCTS(object):
             else:
                 leaf_value = -1.0
         node.update_recursive(-leaf_value)
+        
+        
+    def check_search_resource(self):
+        if self.p == 1:
+            return 3
+        elif 2 <= self.p <= 4:
+            return 6 * (3 ** (self.p - 2))
+        else:
+            raise ValueError("p should be between 1 and 4")
 
 
     def get_move_probs(self, env, game_iter, temp):  # state.shape = (5,9,4)
@@ -288,7 +311,6 @@ class MCTS(object):
                 wandb.log({
                     f"{graph_name}_planning_depth": self.planning_depth,
                     f"{graph_name}_quantiles": 3 ** self.p,
-                    f"{graph_name}_n_playout": self.n_playout,
                     f"{graph_name}_full_search_rate": 1 if self.p == 4 else 0,
             })
 
