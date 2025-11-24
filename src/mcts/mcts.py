@@ -193,7 +193,6 @@ class MCTS(object):
                     f"{graph_name}_pd": self.planning_depth,
                     f"{graph_name}_nq": self.number_of_quantiles
             })
-            self.planning_depth = 0  
 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)

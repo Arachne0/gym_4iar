@@ -9,13 +9,13 @@ def initialize_wandb(args):
         "config": args.__dict__
     }
     if args.rl_model in ["AC", "EQRAC"]:
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}"
+        run_name = f"{args.rl_model}-nmcts{args.n_playout}"
     elif args.rl_model == "QRAC":
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Quantiles{args.quantiles}"
+        run_name = f"{args.rl_model}-nmcts{args.n_playout}-quantiles{args.quantiles}"
     elif args.rl_model in ["DQN", "EQRDQN"]:
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Eps{args.epsilon}"
+        run_name = f"{args.rl_model}-nmcts{args.n_playout}-eps{args.epsilon}"
     elif args.rl_model == "QRDQN":
-        run_name = f"FIAR-{args.rl_model}-MCTS{args.n_playout}-Quantiles{args.quantiles}-Eps{args.epsilon}"
+        run_name = f"{args.rl_model}-nmcts{args.n_playout}-quantiles{args.quantiles}-eps{args.epsilon}"
     else:
         raise ValueError("Model is not defined")
 
@@ -26,10 +26,6 @@ def create_models(args, i=None):
     """
     Generate training and evaluation model file paths dynamically based on the rl_model and parameters.
     """
-    base_paths = {
-        "Training": "Training",
-        "Eval": "Eval"
-    }
     # Define model-specific path structures
     model_params = {
         "DQN": f"_nmcts{args.n_playout}_eps{args.epsilon}",
@@ -44,11 +40,11 @@ def create_models(args, i=None):
 
     # Construct the specific path part for the model
     specific_path = model_params[args.rl_model]
-    filename = f"train_{i + 1:03d}.pth"
+    filename = f"{i + 1:03d}.pth"
 
     # Generate full paths
-    model_file = f"models/{base_paths['Training']}/{args.rl_model}{specific_path}/{filename}"
-    eval_model_file = f"models/{base_paths['Eval']}/{args.rl_model}{specific_path}/{filename}"
+    model_file = f"models/Training/{args.rl_model}{specific_path}/{filename}"
+    eval_model_file = f"models/Eval/{args.rl_model}{specific_path}/{filename}"
 
     return model_file, eval_model_file
 
@@ -75,7 +71,7 @@ def get_existing_files(args):
 
     # Fetch files and extract indices
     return [
-        int(file.split('_')[-1].split('.')[0])
+        int(file.split('.')[0])     
         for file in os.listdir(path)
-        if file.startswith('train_')
+        if file.endswith('.pth')    
     ]

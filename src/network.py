@@ -378,7 +378,7 @@ class PolicyValueNet:
         if args.rl_model in model_map:
             self.policy_value_net = model_map[args.rl_model]().to(self.device)
         else:
-            print("error")
+            raise ValueError(f"Unknown rl_model: {args.rl_model}")
 
         self.optimizer = optim.Adam(self.policy_value_net.parameters(),
                                     weight_decay=self.l2_const)

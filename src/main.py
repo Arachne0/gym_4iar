@@ -190,33 +190,62 @@ def policy_update(lr_mul, policy_value_net, data_buffers=None, rl_model=None):
 
     return loss, entropy, lr_multiplier, policy_value_net
 
-
 def policy_evaluate(env, curr_mcts_player, old_mcts_player, game_iter, n_games=30):  # total 30 games
     """
     Evaluate the trained policy by playing against the pure MCTS player
     Note: this is only for monitoring the progress of trainingSS
     """
-    win_cnt = defaultdict(int)
+    trained_model_wins = 0
+    trained_model_losses = 0
+    ties = 0
+    
+    games = n_games // 2
 
-    for j in range(n_games):
-        winner = start_play(env, curr_mcts_player, old_mcts_player)
-        win_cnt[winner] += 1
-        print(f"game: {game_iter+1}, evaluate:{j + 1}")
+    for i in range(games):
+        winner = start_play(env, curr_mcts_player, old_mcts_player, turn=0)
+        
+        if winner == 1:      # win current MCTS(Black) 
+            trained_model_wins += 1
+        elif winner == -1:   # win old MCTS(White)
+            trained_model_losses += 1
+        else:
+            ties += 1
+        
+        print(f"Game {game_iter}-{i+1} (Black): Result {winner}")
+    
+    for i in range(games):
+        winner = start_play(env, old_mcts_player, curr_mcts_player, turn=1)
+        
+        if winner == -1:     # win current MCTS(Black)
+            trained_model_wins += 1
+        elif winner == 1:    # win old MCTS(White)
+            trained_model_losses += 1
+        else:
+            ties += 1
+            
+        print(f"Game {game_iter}-{games+i+1} (White): Result {winner}")
 
-    win_ratio = 1.0 * win_cnt[1] / n_games
-    print("---------- win: {}, tie:{}, lose: {} ----------".format(win_cnt[1], win_cnt[0], win_cnt[-1]))
+    win_ratio = 1.0 * trained_model_wins / n_games
+    
+    print(f"\n---------- Evaluation Result (Iter {game_iter+1}) ----------")
+    print(f"Total Games: {n_games}")
+    print(f"Current Agent Wins: {trained_model_wins} (Ratio: {win_ratio:.2f})")
+    print(f"Current Agent Losses: {trained_model_losses}")
+    print(f"Ties: {ties}")
+    print("------------------------------------------------------")
+
     return win_ratio, curr_mcts_player
 
 
-def start_play(env, player1, player2):
+def start_play(env, player1, player2, turn):
     """start a game between two players"""
     obs, _ = env.reset()
-    players = [0, 1]
-    p1, p2 = players
-    player1.set_player_ind(p1)
-    player2.set_player_ind(p2)
-    players = {p1: player1, p2: player2}
-    current_player = 0
+        
+    current_player = turn
+    opponent_player = 1 - current_player
+    player1.set_player_ind(current_player)
+    player2.set_player_ind(opponent_player)
+    players = {current_player: player1, opponent_player: player2}
     player_in_turn = players[current_player]
 
     while True:
@@ -232,7 +261,7 @@ def start_play(env, player1, player2):
 
         else:
             obs, _ = env.reset()
-            return winner
+            return winner   
 
 
 if __name__ == '__main__':
