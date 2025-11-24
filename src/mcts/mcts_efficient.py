@@ -129,7 +129,7 @@ class MCTS(object):
         self._c_puct = args.c_puct
         self.rl_model = args.rl_model
         self.epsilon = args.epsilon
-        self.planning_depth = 0
+        # self.planning_depth = 0
 
         self.resource = 0
         self.search_resource = args.search_resource
@@ -144,6 +144,8 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
+        current_depth = 0
+        terminated = False
 
         while True:
             if node.is_leaf():
@@ -151,16 +153,17 @@ class MCTS(object):
             # Greedily select next move.
             action, node = node.select(self._c_puct)
             obs, reward, terminated, info = env.step(action)
-            self.planning_depth += 1
+            current_depth += 1
 
         available, action_probs, leaf_value = self._policy(env) 
+        self.planning_depth = current_depth
         self.p = 1   # reset p for each playout
         
         if self.rl_model == "EQRAC" and len(available) > 0:
             eqrac_values = None
             available_probs = action_probs[available]
             
-            if len(available_probs) >= 2:
+            if len(available_probs) >= 2 and terminated == False:
                 # Get Best and Second Best Actions
                 sorted_available_idx = np.argsort(available_probs)[::-1]
                 a_best = available[sorted_available_idx[0]]
@@ -199,8 +202,8 @@ class MCTS(object):
 
                     if act_gap > self.threshold:
                         action_probs_zip = zip(available, action_probs[available])
-                        
                         self.leaf_update(action_probs_zip, leaf_value_max, env, node)
+                        break
 
                     else:
                         if self.search_resource < self.check_search_resource():
@@ -214,10 +217,10 @@ class MCTS(object):
                             self.p += 1
 
                     if self.p == 5:
-                        action_probs_zip = zip(available, action_probs[available])
                         self.p = 4
-                        
+                        action_probs_zip = zip(available, action_probs[available])
                         self.leaf_update(action_probs_zip, leaf_value_max, env, node)
+                        break
 
                 elif self.rl_model == "EQRAC":
                     if eqrac_values is not None: 
@@ -232,6 +235,7 @@ class MCTS(object):
                         if act_gap > self.threshold:
                             action_probs_zip = zip(available, action_probs[available])
                             self.leaf_update(action_probs_zip, leaf_value_best, env, node)
+                            break
                             
                         else:
                             if self.search_resource < self.check_search_resource():
@@ -245,29 +249,30 @@ class MCTS(object):
                                 self.p += 1
                                 
                         if self.p == 5:
-                            action_probs_zip = zip(available, action_probs[available])
                             self.p = 4
-                            
+                            action_probs_zip = zip(available, action_probs[available])
                             self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                            break
                     
-                    else:  # available actions < 2 
-                        action_probs_zip = zip(available, action_probs[available])
+                    else:  # available actions < 2 or terminated game
                         self.search_resource = 0
-                        
+                        action_probs_zip = zip(available, action_probs[available])
                         self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                        break
 
                 else:
                     raise ValueError("rl_model should be EQRDQN or EQRAC")
 
-            else:  # ended game
+            else:  # terminated game
                 action_probs_zip = zip(available, action_probs[available])
                 self.search_resource = 0
                 self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                break
 
 
     def leaf_update(self, action_probs, leaf_value, env, node):
-        # self.update_depth_resource()
-        self.update_quantile_resource()
+        self.update_depth_resource()
+        print("self.planning_depth:", self.planning_depth)
 
         # Check for end of game
         end, winners = env.winner()
@@ -299,10 +304,9 @@ class MCTS(object):
         state: the current game state
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
-        self.n_playout = 0
+        self.n_playout, self.planning_depth = 0, 0
         while self.search_resource > 0:
             env_copy = copy.deepcopy(env)
-            self.planning_depth = 1
             self.n_playout += 1
             self._playout(env_copy)
             
@@ -311,7 +315,6 @@ class MCTS(object):
                 wandb.log({
                     f"{graph_name}_planning_depth": self.planning_depth,
                     f"{graph_name}_quantiles": 3 ** self.p,
-                    f"{graph_name}_full_search_rate": 1 if self.p == 4 else 0,
             })
 
         # calc the move probabilities based on visit counts at the root node
