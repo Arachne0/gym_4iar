@@ -280,10 +280,8 @@ class MCTS(object):
         else:
             if winners == 0:  # tie
                 leaf_value = 0.0
-            elif winners == env.turn():
-                leaf_value = 1.0
             else:
-                leaf_value = -1.0
+                leaf_value = 1.0 if winners == env.turn() else -1.0   
         node.update_recursive(-leaf_value)
         
         
@@ -339,7 +337,7 @@ class MCTS(object):
             self._root = TreeNode(None, 1.0)
             
     def update_depth_resource(self):
-        self.search_resource -= 3 * self.planning_depth
+        self.search_resource -= self.planning_depth
 
     def update_quantile_resource(self):
         if self.p == 1:

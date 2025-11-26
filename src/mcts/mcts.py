@@ -171,10 +171,8 @@ class MCTS(object):
         else:
             if winners == 0:  # tie
                 leaf_value = 0.0
-            elif winners == env.turn():
-                leaf_value = 1.0
             else:
-                leaf_value = -1.0
+                leaf_value = 1.0 if winners == env.turn() else -1.0     
         node.update_recursive(-leaf_value)
 
     def get_move_probs(self, env, game_iter, temp):  # state.shape = (5,9,4)

@@ -141,7 +141,10 @@ def self_play(env, mcts_player, game_iter, self_play_i=0):
             winners_z = np.zeros(len(current_player))
 
             if winners != 0:  # non-draw
-                winner_index = 0 if winners == 1 else 1  # 0 is black, 1 is white
+                """ if winners is 1, winner_index is 0 (black win),
+                if winners is -1, winner_index is 1 (white win)
+                """
+                winner_index = 0 if winners == 1 else 1 
                 losers_index = 1 - winner_index
                 current_player = np.array(current_player)
 
