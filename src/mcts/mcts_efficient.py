@@ -143,7 +143,7 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        current_depth = 0
+        current_depth = 1
         terminated = False
 
         while True:
