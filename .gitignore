@@ -10,6 +10,8 @@ prev_models/
 prev_models2/
 
 models/
+models82/
+
 gym_fiar/
 /src/ploting
 */efficient_mcts_*.py

@@ -300,7 +300,8 @@ class MCTS(object):
         state: the current game state
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
-        self.n_playout, self.planning_depth = 0, 0
+        self.n_playout = 0
+        self.previous_depth, self.planning_depth = 0, 0
         while self.search_resource > 0:
             env_copy = copy.deepcopy(env)
             self.n_playout += 1
@@ -337,7 +338,7 @@ class MCTS(object):
             self._root = TreeNode(None, 1.0)
             
     def update_depth_resource(self):
-        self.search_resource -= self.planning_depth
+        self.search_resource -= 1
 
     def update_quantile_resource(self):
         if self.p == 1:
