@@ -43,8 +43,8 @@ def create_models(args, i=None):
     filename = f"{i + 1:03d}.pth"
 
     # Generate full paths
-    model_file = f"models82/Training/{args.rl_model}{specific_path}/{filename}"
-    eval_model_file = f"models82/Eval/{args.rl_model}{specific_path}/{filename}"
+    model_file = f"models/Training/{args.rl_model}{specific_path}/{filename}"
+    eval_model_file = f"models/Eval/{args.rl_model}{specific_path}/{filename}"
 
     return model_file, eval_model_file
 
@@ -53,7 +53,7 @@ def get_existing_files(args):
     """
     Retrieve a list of existing file indices based on the model type and parameters.
     """
-    base_path = "models82/Training"
+    base_path = "models/Training"
     if args.rl_model == "DQN":
         path = f"{base_path}/{args.rl_model}_nmcts{args.n_playout}_eps{args.epsilon}"
     elif args.rl_model == "QRDQN":
