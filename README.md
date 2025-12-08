@@ -10,11 +10,9 @@ pip install -r requirements.txt
 ```bash
 python src/main.py --rl_model AC --n_playout 20 
 python src/main.py --rl_model QRAC --n_playout 20 --quantiles 81
-python src/main.py --rl_model QAC --n_playout 20 
-python src/main.py --rl_model QRQAC --n_playout 20 --quantiles 81
+python src/main.py --rl_model EQRAC --n_playout 20 --search_resource 1620 --quantiles 81
 python src/main.py --rl_model DQN --n_playout 20 
 python src/main.py --rl_model QRDQN --n_playout 20 --quantiles 81
-python src/main.py --rl_model EQRQAC --n_playout 20 --search_resource 1620 --quantiles 81
 python src/main.py --rl_model EQRDQN --n_playout 20 --search_resource 1620 --quantiles 81 
 ```
 

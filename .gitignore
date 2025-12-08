@@ -4,16 +4,13 @@ __pycache__/
 logs/
 wandb/
 prev_src/
-prev_src2/
-
-prev_models/
-prev_models2/
 
 models/
-models82/
+prev_models/
 
 gym_fiar/
 /src/ploting
+*/elo.py
 */efficient_mcts_*.py
 efficient_evaluation.py
 

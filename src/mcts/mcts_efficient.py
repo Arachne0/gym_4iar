@@ -1,9 +1,8 @@
 import numpy as np
 import copy
+import logging  
 
-import wandb
-import torch
-
+logger = logging.getLogger(__name__)
 
 def softmax(x):
     probs = np.exp(x - np.max(x))
@@ -308,12 +307,13 @@ class MCTS(object):
             self._playout(env_copy)
             
             if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
-                graph_name = f"training/game_iter_{game_iter + 1}"
-                wandb.log({
-                    f"{graph_name}_planning_depth": self.planning_depth,
-                    f"{graph_name}_quantiles": 3 ** self.p,
-            })
-
+                logger.info(
+                    f"[Game {game_iter + 1}] Playout: {self.n_playout} | "
+                    f"Depth: {self.planning_depth - self.previous_depth} | "
+                    f"Quantiles: {self.number_of_quantiles}"
+                )
+                self.planning_depth = self.previous_depth
+                
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
                       for act, node in self._root._children.items()]

@@ -1,6 +1,8 @@
 import argparse
 import random
 import numpy as np
+import logging
+import datetime
 import wandb
 
 from collections import defaultdict, deque
@@ -19,9 +21,7 @@ def get_args():
     parser.add_argument("--quantiles", type=int, required=False, choices=[3, 9, 27, 81])
 
     # Efficient search hyperparameters
-    parser.add_argument("--effi_n_playout", type=int, required=False, choices=[2, 20, 50, 100, 400])
     parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
-    # parser.add_argument("--search_resource", type=int, required=False, choices=[164, 1640, 4100, 8200, 32800])
 
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[
@@ -46,6 +46,27 @@ def get_args():
     args = parser.parse_args()
 
     return args
+
+
+def setup_logger(args):
+    import os
+    if not os.path.exists(f'logs/{args.rl_model}'):
+        os.makedirs(f'logs/{args.rl_model}')
+    
+    current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    if args.rl_model in ["QRAC", "EQRAC", "QRDQN", "EQRDQN"]:
+        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout}_quantiles_{args.quantiles}_{current_time}.log"
+    else:
+        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout_}_{current_time}.log"
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s | %(levelname)s | %(message)s',
+        handlers=[
+            logging.FileHandler(log_filename),
+        ]
+    )
+    print(f"Log file created: {log_filename}")
 
 
 def get_equi_data(env, play_data):
@@ -94,9 +115,8 @@ def collect_selfplay_data(env, mcts_player, game_iter, n_games=100):
     win_ratio = 1.0 * win_cnt[1] / n_games
     print("\n ---------- Self-Play win: {}, tie:{}, lose: {} ----------".format(win_cnt[1], win_cnt[0], win_cnt[-1]))
     print("Win rate : ", round(win_ratio * 100, 3), "%")
-    wandb.log({"win_rate/self_play": round(win_ratio * 100, 3)})
 
-    return data_buffer
+    return data_buffer, win_ratio
 
 
 def self_play(env, mcts_player, game_iter, self_play_i=0):
@@ -273,8 +293,8 @@ if __name__ == '__main__':
     start = time.time()
 
     args = get_args()
-
-    # initialize wandb
+    
+    setup_logger(args)
     initialize_wandb(args)
 
     # initialize environment
@@ -303,7 +323,7 @@ if __name__ == '__main__':
     try:
         for i in range(start_iter, args.training_iter):
             """collect self-play data each iteration 100 games"""
-            selfplay_batch = collect_selfplay_data(env, curr_mcts_player, i)
+            selfplay_batch, win_ratio = collect_selfplay_data(env, curr_mcts_player, i)
             train_buffer.append(selfplay_batch)
             end = time.time()
             print("Elapsed:", end - start)
@@ -313,7 +333,8 @@ if __name__ == '__main__':
                                                                            policy_value_net=policy_value_net,
                                                                            data_buffers=train_buffer,
                                                                            rl_model=args.rl_model)
-            wandb.log({"loss": loss,
+            wandb.log({"win_rate/self_play": round(win_ratio * 100, 3),
+                       "loss": loss,
                        "entropy": entropy})
 
             if i == 0:

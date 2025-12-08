@@ -1,6 +1,8 @@
 import numpy as np
 import copy
-import wandb
+import logging  
+
+logger = logging.getLogger(__name__)
 
 def softmax(x):
     probs = np.exp(x - np.max(x))
@@ -182,15 +184,16 @@ class MCTS(object):
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
         for n in range(self._n_playout):  # for 400 times
+            self.planning_depth = 0
             env_copy = copy.deepcopy(env)
             self._playout(env_copy)
             
             if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
-                graph_name = f"training/game_iter_{game_iter + 1}"
-                wandb.log({
-                    f"{graph_name}_pd": self.planning_depth,
-                    f"{graph_name}_nq": self.number_of_quantiles
-            })
+                logger.info(
+                    f"[Game {game_iter + 1}] Playout: {self.n_playout} | "
+                    f"Depth: {self.planning_depth} | "
+                    f"Quantiles: {self.number_of_quantiles}"
+                )
 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
