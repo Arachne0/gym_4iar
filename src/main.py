@@ -21,7 +21,7 @@ def get_args():
     parser.add_argument("--quantiles", type=int, required=False, choices=[3, 9, 27, 81])
 
     # Efficient search hyperparameters
-    parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
+    parser.add_argument("--search_resource", type=int, required=False, default=8100)
 
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[

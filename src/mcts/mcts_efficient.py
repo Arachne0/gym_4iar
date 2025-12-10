@@ -142,7 +142,6 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        current_depth = 1
         terminated = False
 
         while True:
@@ -151,10 +150,8 @@ class MCTS(object):
             # Greedily select next move.
             action, node = node.select(self._c_puct)
             obs, reward, terminated, info = env.step(action)
-            current_depth += 1
 
         available, action_probs, leaf_value = self._policy(env) 
-        self.planning_depth = current_depth
         self.p = 1   # reset p for each playout
         
         if self.rl_model == "EQRAC" and len(available) > 0:
@@ -300,8 +297,8 @@ class MCTS(object):
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
         self.n_playout = 0
-        self.previous_depth, self.planning_depth = 0, 0
         while self.search_resource > 0:
+            self.planning_depth = 0
             env_copy = copy.deepcopy(env)
             self.n_playout += 1
             self._playout(env_copy)
@@ -309,10 +306,9 @@ class MCTS(object):
             if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
                 logger.info(
                     f"[Game {game_iter + 1}] Playout: {self.n_playout} | "
-                    f"Depth: {self.planning_depth - self.previous_depth} | "
-                    f"Quantiles: {self.number_of_quantiles}"
+                    f"Depth: {self.planning_depth} | "
+                    f"Quantiles: {3 ** self.p}"
                 )
-                self.planning_depth = self.previous_depth
                 
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
@@ -338,6 +334,7 @@ class MCTS(object):
             self._root = TreeNode(None, 1.0)
             
     def update_depth_resource(self):
+        self.planning_depth += 1
         self.search_resource -= 1
 
     def update_quantile_resource(self):

@@ -20,6 +20,7 @@ efficient_evaluation.py
 *.model
 *.zip
 *.png
+*.csv
 *.c
 .DS_Store
 src/.DS_Store
