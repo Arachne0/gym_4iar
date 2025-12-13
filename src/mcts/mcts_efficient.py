@@ -150,7 +150,8 @@ class MCTS(object):
             # Greedily select next move.
             action, node = node.select(self._c_puct)
             obs, reward, terminated, info = env.step(action)
-
+            self.planning_depth += 1
+            
         available, action_probs, leaf_value = self._policy(env) 
         self.p = 1   # reset p for each playout
         
@@ -298,9 +299,9 @@ class MCTS(object):
         """
         self.n_playout = 0
         while self.search_resource > 0:
-            self.planning_depth = 0
-            env_copy = copy.deepcopy(env)
+            self.planning_depth = 1
             self.n_playout += 1
+            env_copy = copy.deepcopy(env)
             self._playout(env_copy)
             
             if game_iter + 1 in [1, 10, 20, 31, 50, 100]:
@@ -334,7 +335,6 @@ class MCTS(object):
             self._root = TreeNode(None, 1.0)
             
     def update_depth_resource(self):
-        self.planning_depth += 1
         self.search_resource -= 1
 
     def update_quantile_resource(self):

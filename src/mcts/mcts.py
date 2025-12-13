@@ -184,7 +184,7 @@ class MCTS(object):
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
         for n in range(self._n_playout):  # for 400 times
-            self.planning_depth = 0
+            self.planning_depth = 1
             env_copy = copy.deepcopy(env)
             self._playout(env_copy)
             

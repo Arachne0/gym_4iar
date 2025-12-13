@@ -3,15 +3,17 @@ __pycache__/
 .idea/
 logs/
 wandb/
-prev_src/
 
+# model files
 models/
+
+# prev files 
+prev_src/
 prev_models/
 
-gym_fiar/
+
 /src/ploting
 */elo.py
-*/efficient_mcts_*.py
 efficient_evaluation.py
 
 *.pth
