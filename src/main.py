@@ -57,7 +57,7 @@ def setup_logger(args):
     if args.rl_model in ["QRAC", "EQRAC", "QRDQN", "EQRDQN"]:
         log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout}_quantiles_{args.quantiles}_{current_time}.log"
     else:
-        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout_}_{current_time}.log"
+        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout}_{current_time}.log"
 
     logging.basicConfig(
         level=logging.INFO,
