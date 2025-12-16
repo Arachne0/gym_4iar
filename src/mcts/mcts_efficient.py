@@ -180,14 +180,16 @@ class MCTS(object):
                     action_probs_[idx_max] -= self.epsilon
                     action_probs = action_probs_
 
-                    _, idx_srted = leaf_value_.sort()
+                    # _, idx_srted = leaf_value_.sort()
+                    leaf_value_avail = leaf_value_[available]
                     
                     if len(available) >= 2:
-                        leaf_value_max = leaf_value_[available][idx_srted[-1]]
-                        act_gap = leaf_value_[available][idx_srted[-1]] - leaf_value_[available][idx_srted[-2]]
+                        _, idx_srted = leaf_value_avail.sort()
+                        leaf_value_max = leaf_value_avail[idx_srted[-1]]
+                        act_gap = leaf_value_avail[idx_srted[-1]] - leaf_value_avail[idx_srted[-2]]
                     else:
-                        leaf_value_max = leaf_value_[idx_srted[-1]]
-                        act_gap = leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]]
+                        leaf_value_max = leaf_value_avail[0]
+                        act_gap = 0
                         
                     if act_gap > self.threshold:
                         action_probs_zip = zip(available, action_probs[available])
