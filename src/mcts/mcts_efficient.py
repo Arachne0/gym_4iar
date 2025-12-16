@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def softmax(x):
     probs = np.exp(x - np.max(x))
     probs /= np.sum(probs)
@@ -14,25 +15,13 @@ def random_argmax(array):
     return np.random.choice(np.flatnonzero(array == np.max(array)))
 
 
-def get_leaf_value(leaf_value_, rl_model, idx_srted=None):
-    """Return scalar leaf value based on model type."""
-    if rl_model == "EQRDQN":
-        if idx_srted is not None:
-            return leaf_value_[idx_srted[-1]]  # max Q-value from sorted index
-        return leaf_value_.max()  # fallback to max
-    elif rl_model == "EQRAC":
-        return leaf_value_.mean()  # mean regardless of idx_srted
-    else:
-        raise ValueError(f"Unsupported rl_model: {rl_model}")
-
-
 def get_fixed_indices(p):
     if p == 1:
-        return [13, 40, 67]
+        return [13 + 27 * m for m in range(3)]
     elif p == 2:
-        return [4, 13, 22, 31, 40, 49, 58, 67, 76]
+        return [4 + 9 * m for m in range(9)]
     elif p == 3:
-        return [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55, 58, 61, 64, 67, 70, 73, 76, 79]
+        return [1 + 3 * m for m in range(27)]
     elif p == 4:
         return list(range(81))
     else:
@@ -192,10 +181,14 @@ class MCTS(object):
                     action_probs = action_probs_
 
                     _, idx_srted = leaf_value_.sort()
-                    leaf_value_max = leaf_value_[idx_srted[-1]]
                     
-                    act_gap = leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]]
-
+                    if len(available_probs) >= 2:
+                        leaf_value_max = leaf_value_[available][idx_srted[-1]]
+                        act_gap = leaf_value_[available][idx_srted[-1]] - leaf_value_[available][idx_srted[-2]]
+                    else:
+                        leaf_value_max = leaf_value_[idx_srted[-1]]
+                        act_gap = leaf_value_[idx_srted[-1]] - leaf_value_[idx_srted[-2]]
+                        
                     if act_gap > self.threshold:
                         action_probs_zip = zip(available, action_probs[available])
                         self.leaf_update(action_probs_zip, leaf_value_max, env, node)
@@ -223,14 +216,14 @@ class MCTS(object):
                         value_1, value_2 = eqrac_values
                         
                         # Calculate leaf values using fixed quantile indices
-                        leaf_value_best = value_1[n_indices].cpu().mean()
-                        leaf_value_second = value_2[n_indices].cpu().mean()
+                        leaf_value_best = value_1[n_indices].mean().cpu()
+                        leaf_value_second = value_2[n_indices].mean().cpu()
 
                         act_gap = leaf_value_best - leaf_value_second
 
                         if act_gap > self.threshold:
                             action_probs_zip = zip(available, action_probs[available])
-                            self.leaf_update(action_probs_zip, leaf_value_best, env, node)
+                            self.leaf_update(action_probs_zip, leaf_value[n_indices].mean().cpu(), env, node)
                             break
                             
                         else:
