@@ -149,7 +149,8 @@ class EQRDQN(nn.Module):
         self.board_width = board_width
         self.board_height = board_height
         self.num_actions = board_width * board_height
-        self.N = quantiles
+        self.N = 81
+        # self.N = quantiles
 
         # common layers
         self.conv1 = nn.Conv2d(5, 32, kernel_size=3, padding=1)
@@ -273,7 +274,8 @@ class EQRAC(nn.Module):  # Efficient Quantile Regression action value actor crit
         self.board_width = board_width
         self.board_height = board_height
         self.num_actions = board_width * board_height
-        self.N = quantiles
+        self.N = 81
+        # self.N = quantiles
 
         # common layers
         self.conv1 = nn.Conv2d(5, 32, kernel_size=3, padding=1)

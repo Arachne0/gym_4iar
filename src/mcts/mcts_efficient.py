@@ -182,7 +182,7 @@ class MCTS(object):
 
                     _, idx_srted = leaf_value_.sort()
                     
-                    if len(available_probs) >= 2:
+                    if len(available) >= 2:
                         leaf_value_max = leaf_value_[available][idx_srted[-1]]
                         act_gap = leaf_value_[available][idx_srted[-1]] - leaf_value_[available][idx_srted[-2]]
                     else:
