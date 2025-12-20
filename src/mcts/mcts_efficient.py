@@ -122,7 +122,7 @@ class MCTS(object):
         self.search_resource = args.search_resource
         self.n_playout = 0
         self.p = 1  # number of quantiles (3^p)
-        self.threshold = 0.1
+        self.threshold = args.threshold
 
 
     def _playout(self, env):

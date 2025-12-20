@@ -32,6 +32,7 @@ def get_args():
     # MCTS parameters
     parser.add_argument("--c_puct", type=float, default=5.0)
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--threshold", type=float, default=0.1)
 
     # Policy update parameters
     parser.add_argument("--batch_size", type=int, default=64)
