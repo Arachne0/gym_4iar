@@ -257,19 +257,24 @@ class MCTS(object):
                             self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
                             break
                     
-                    else:  # available actions < 2 or terminated game
-                        self.search_resource = 0
+                    else:  # not enough available actions to calculate eqrac_values
                         action_probs_zip = zip(available, action_probs[available])
-                        self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
+                        if terminated:
+                            self.p = 4
+                            self.update_quantile_resource()
+                            self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
+                        else:
+                            # available actions less than 2
+                            self.update_quantile_resource()
+                            self.leaf_update(action_probs_zip, leaf_value[get_fixed_indices(1)].mean().item(), env, node)
                         break
-
                 else:
                     raise ValueError("rl_model should be EQRDQN or EQRAC")
 
             else:  # terminated game
+                self.update_quantile_resource()
                 action_probs_zip = zip(available, action_probs[available])
-                self.search_resource = 0
-                self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
+                self.leaf_update(action_probs_zip, leaf_value[get_fixed_indices(1)].mean().item(), env, node)
                 break
 
 
