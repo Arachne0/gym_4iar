@@ -71,7 +71,6 @@ class TreeNode(object):
     def update_recursive(self, leaf_value):
         """Like a call to update(), but applied recursively for all ancestors.
         """
-        # If it is not root, this node's parent should be updated first.
         if self._parent:
             self._parent.update_recursive(-leaf_value)
         self.update(leaf_value)
@@ -185,10 +184,10 @@ class MCTS(object):
                     
                     if len(available) >= 2:
                         _, idx_srted = leaf_value_avail.sort()
-                        leaf_value_max = leaf_value_avail[idx_srted[-1]]
-                        act_gap = leaf_value_avail[idx_srted[-1]] - leaf_value_avail[idx_srted[-2]]
+                        leaf_value_max = leaf_value_avail[idx_srted[-1]].item()
+                        act_gap = leaf_value_max - leaf_value_avail[idx_srted[-2]].item()
                     else:
-                        leaf_value_max = leaf_value_avail[0]
+                        leaf_value_max = leaf_value_avail[0].item()
                         act_gap = 0
                         
                     if act_gap > self.threshold:
@@ -218,20 +217,33 @@ class MCTS(object):
                         value_1, value_2 = eqrac_values
                         
                         # Calculate leaf values using fixed quantile indices
-                        leaf_value_best = value_1[n_indices].mean().cpu()
-                        leaf_value_second = value_2[n_indices].mean().cpu()
+                        leaf_value_best = value_1[n_indices].mean().item()
+                        leaf_value_second = value_2[n_indices].mean().item()
+                        
+                        """Note on Action Gap Calculation for EQRAC:
+                        The EQRAC model estimates action gaps using the values of subsequent states (next-state evaluation).
+                        In zero-sum games, the network's output V(s') reflects the winning probability of the 
+                        player whose turn it is in state s' (the opponent). 
 
-                        act_gap = leaf_value_best - leaf_value_second
+                        To align this with the current player's perspective:
+                        1. Q(s, a_best)   ≈ -V(s'_best)
+                        2. Q(s, a_second) ≈ -V(s'_second)
+
+                        The Action Gap (Δ) is the difference in expected utility between the best and second-best actions:
+                        Δ = Q(s, a_best) - Q(s, a_second) = (-V_best) - (-V_second).
+                        This ensures act_gap is positive when the best action is indeed superior to the second best.
+                        """
+                        act_gap = (-leaf_value_best) - (-leaf_value_second)
 
                         if act_gap > self.threshold:
                             action_probs_zip = zip(available, action_probs[available])
-                            self.leaf_update(action_probs_zip, leaf_value[n_indices].mean().cpu(), env, node)
+                            self.leaf_update(action_probs_zip, leaf_value[n_indices].mean().item(), env, node)
                             break
                             
                         else:
                             if self.search_resource < self.check_search_resource():
                                 action_probs_zip = zip(available, action_probs[available])
-                                self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                                self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
                                 self.search_resource = 0 
                                 break
                             
@@ -242,13 +254,13 @@ class MCTS(object):
                         if self.p == 5:
                             self.p = 4
                             action_probs_zip = zip(available, action_probs[available])
-                            self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                            self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
                             break
                     
                     else:  # available actions < 2 or terminated game
                         self.search_resource = 0
                         action_probs_zip = zip(available, action_probs[available])
-                        self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                        self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
                         break
 
                 else:
@@ -257,18 +269,17 @@ class MCTS(object):
             else:  # terminated game
                 action_probs_zip = zip(available, action_probs[available])
                 self.search_resource = 0
-                self.leaf_update(action_probs_zip, leaf_value.mean().cpu(), env, node)
+                self.leaf_update(action_probs_zip, leaf_value.mean().item(), env, node)
                 break
 
 
-    def leaf_update(self, action_probs, leaf_value, env, node):
-        self.update_depth_resource()
-
-        # Check for end of game
+    def leaf_update(self, action_probs, leaf_value, env, node):       
+        """Update the leaf node and propagate the value up to the root."""
         end, winners = env.winner()
 
         if not end:
             node.expand(action_probs)
+            self.update_depth_resource()
         else:
             if winners == 0:  # tie
                 leaf_value = 0.0
@@ -318,6 +329,7 @@ class MCTS(object):
             act_probs[random_argmax(np.array(visits))] = 1.0
 
         return acts, act_probs
+    
 
     def update_with_move(self, last_move):
         """Step forward in the tree, keeping everything we already know
@@ -329,8 +341,10 @@ class MCTS(object):
         else:
             self._root = TreeNode(None, 1.0)
             
+            
     def update_depth_resource(self):
         self.search_resource -= 1
+
 
     def update_quantile_resource(self):
         if self.p == 1:

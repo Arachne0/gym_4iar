@@ -1,8 +1,6 @@
 import argparse
 import random
 import numpy as np
-import logging
-import datetime
 import wandb
 
 from collections import defaultdict, deque
@@ -21,7 +19,8 @@ def get_args():
     parser.add_argument("--quantiles", type=int, required=False, choices=[3, 9, 27, 81])
 
     # Efficient search hyperparameters
-    parser.add_argument("--search_resource", type=int, required=False, default=8100)
+    parser.add_argument("--search_resource", type=int, required=False, choices=[162, 1620, 4050, 8100, 32400])
+    parser.add_argument("--threshold", type=float, default=0.1)
 
     # RL model type
     parser.add_argument("--rl_model", type=str, required=False, choices=[
@@ -32,7 +31,6 @@ def get_args():
     # MCTS parameters
     parser.add_argument("--c_puct", type=float, default=5.0)
     parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--threshold", type=float, default=0.1)
 
     # Policy update parameters
     parser.add_argument("--batch_size", type=int, default=64)
@@ -44,30 +42,10 @@ def get_args():
 
     # Evaluation
     parser.add_argument("--init_model", type=str, default=None)
+    
     args = parser.parse_args()
 
     return args
-
-
-def setup_logger(args):
-    import os
-    if not os.path.exists(f'logs/{args.rl_model}'):
-        os.makedirs(f'logs/{args.rl_model}')
-    
-    current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    if args.rl_model in ["QRAC", "EQRAC", "QRDQN", "EQRDQN"]:
-        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout}_quantiles_{args.quantiles}_{current_time}.log"
-    else:
-        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout}_{current_time}.log"
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s | %(levelname)s | %(message)s',
-        handlers=[
-            logging.FileHandler(log_filename),
-        ]
-    )
-    print(f"Log file created: {log_filename}")
 
 
 def get_equi_data(env, play_data):
@@ -333,7 +311,7 @@ if __name__ == '__main__':
             loss, entropy, lr_multiplier, policy_value_net = policy_update(lr_mul=args.lr_multiplier,
                                                                            policy_value_net=policy_value_net,
                                                                            data_buffers=train_buffer,
-                                                                           rl_model=args.rl_model)
+                                                                            rl_model=args.rl_model)
             wandb.log({"win_rate/self_play": round(win_ratio * 100, 3),
                        "loss": loss,
                        "entropy": entropy})

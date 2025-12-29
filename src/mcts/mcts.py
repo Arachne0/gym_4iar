@@ -57,7 +57,6 @@ class TreeNode(object):
     def update_recursive(self, leaf_value):
         """Like a call to update(), but applied recursively for all ancestors.
         """
-        # If it is not root, this node's parent should be updated first.
         if self._parent:
             self._parent.update_recursive(-leaf_value)
         self.update(leaf_value)
@@ -167,6 +166,9 @@ class MCTS(object):
 
         # Check for end of game
         end, winners = env.winner()
+        
+        if hasattr(leaf_value, "item"):
+            leaf_value = leaf_value.item()
 
         if not end:
             node.expand(action_probs)

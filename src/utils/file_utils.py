@@ -1,6 +1,27 @@
 import os
+import logging
+import datetime
 import wandb
 
+def setup_logger(args):
+    import os
+    if not os.path.exists(f'logs/{args.rl_model}'):
+        os.makedirs(f'logs/{args.rl_model}')
+    
+    current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    if args.rl_model in ["QRAC", "EQRAC", "QRDQN", "EQRDQN"]:
+        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout}_quantiles_{args.quantiles}_{current_time}.log"
+    else:
+        log_filename = f"logs/{args.rl_model}/nplayout_{args.n_playout}_{current_time}.log"
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s | %(levelname)s | %(message)s',
+        handlers=[
+            logging.FileHandler(log_filename),
+        ]
+    )
+    print(f"Log file created: {log_filename}")
 
 def initialize_wandb(args):
     common_config = {
