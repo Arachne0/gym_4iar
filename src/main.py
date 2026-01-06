@@ -297,7 +297,8 @@ if __name__ == '__main__':
 
     train_buffer = deque(maxlen=20)
     best_old_model = None
-    start_iter = 0
+    start_iter = 100
+    args.training_iter = 200
     
     try:
         for i in range(start_iter, args.training_iter):

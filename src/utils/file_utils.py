@@ -40,7 +40,7 @@ def initialize_wandb(args):
     else:
         raise ValueError("Model is not defined")
 
-    wandb.init(name=run_name, **common_config)
+    wandb.init(name=run_name, resume="allow", **common_config)
 
 
 def create_models(args, i=None):
